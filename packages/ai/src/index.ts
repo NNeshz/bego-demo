@@ -90,3 +90,12 @@ export function createAiService(options: AiServiceOptions): AiService {
       }),
   };
 }
+export {
+  runAgent,
+  createAnthropicAgentLlm,
+  type AgentLlm,
+  type AgentTool,
+  type AgentEvent,
+  type AgentMessage,
+  type AgentContentBlock,
+} from "./agent";
