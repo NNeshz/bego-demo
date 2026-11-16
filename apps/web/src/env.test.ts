@@ -6,7 +6,7 @@ describe("parseEnv", () => {
     const env = parseEnv({});
     expect(env.aiEnabled).toBe(false);
     expect(env.dbEnabled).toBe(false);
-    expect(env.NEXT_PUBLIC_APP_URL).toBe("http://localhost:3000");
+    expect(env.NEXT_PUBLIC_APP_URL).toBe("http://localhost:3100");
   });
 
   it("treats empty strings as unset", () => {

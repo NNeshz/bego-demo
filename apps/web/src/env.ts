@@ -15,7 +15,7 @@ export const envSchema = z.object({
   ANTHROPIC_API_KEY: z.preprocess(emptyToUndefined, z.string().startsWith("sk-ant-").optional()),
   ANTHROPIC_MODEL: z.preprocess(emptyToUndefined, z.string().default("claude-haiku-5-5")),
   DATABASE_URL: z.preprocess(emptyToUndefined, z.url().optional()),
-  NEXT_PUBLIC_APP_URL: z.preprocess(emptyToUndefined, z.url().default("http://localhost:3000")),
+  NEXT_PUBLIC_APP_URL: z.preprocess(emptyToUndefined, z.url().default("http://localhost:3100")),
 });
 
 export type Env = z.infer<typeof envSchema> & {
