@@ -1,0 +1,53 @@
+[project]
+name = "retorno-ml"
+version = "0.1.0"
+description = "Learns the ranking weights of the Retorno engine from trucker accept/reject feedback."
+authors = [{ name = "Neftalí Hernández" }]
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi>=0.163.1",
+    "httpx>=0.28.1",
+    "numpy>=2.5.5",
+    "psycopg[binary]>=3.3.9",
+    "pydantic>=2.14.3",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+retorno-ml = "retorno_ml.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.19,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.414",
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+    # Only to verify our hand-written logistic regression matches the reference implementation.
+    "scikit-learn>=1.9.1",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "SIM", "RUF", "NPY"]
+# Math in docstrings and comments is intentional.
+allowed-confusables = ["σ", "−", "×", "β", "‖", "·"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+# Production code is fully strict; tests use standard mode (scikit-learn ships no type stubs).
+strict = ["src"]
+reportMissingTypeStubs = false
+# scikit-learn ships without type stubs; it's only used in a test.
+reportUnknownMemberType = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

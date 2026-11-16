@@ -26,3 +26,9 @@ apps/web/public/vendor
 # Local throwaway scripts
 *.tmp.mjs
 apps/web/public/widget.js
+
+# Python
+.venv
+__pycache__
+.pytest_cache
+.ruff_cache

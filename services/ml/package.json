@@ -1,0 +1,15 @@
+{
+  "name": "@retorno/ml",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Python service (uv): learns the engine's ranking weights from feedback. Thin wrapper so Turborepo runs its checks.",
+  "scripts": {
+    "dev": "uv run uvicorn retorno_ml.api:app --port 8100 --reload",
+    "lint": "uv run ruff check . && uv run ruff format --check .",
+    "format": "uv run ruff format . && uv run ruff check --fix .",
+    "typecheck": "uv run pyright",
+    "test": "uv run pytest",
+    "simulate": "uv run retorno-ml simulate",
+    "train": "uv run retorno-ml train"
+  }
+}

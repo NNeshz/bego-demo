@@ -25,6 +25,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # services/ml (Python) runs through Turborepo too: ruff, pyright, pytest.
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+
       - name: Format, lint, typecheck, test, build
         run: pnpm check
 

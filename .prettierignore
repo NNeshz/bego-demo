@@ -8,3 +8,5 @@ next-env.d.ts
 drizzle/meta
 test-results
 playwright-report
+.venv
+services/ml/uv.lock

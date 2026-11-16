@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "services/*"
 
 # Single source of truth for shared dependency versions.
 # Reference them in package.json as "catalog:".
