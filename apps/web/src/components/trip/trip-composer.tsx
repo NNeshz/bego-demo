@@ -61,7 +61,7 @@ export function TripComposer() {
       : EMPTY,
   );
   const [question, setQuestion] = useState<{ text: string; field: Field } | null>(null);
-  const [status, setStatus] = useState<"idle" | "parsing" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "parsing" | "error" | "rate_limited">("idle");
   const [source, setSource] = useState<ParseResponse["source"] | null>(null);
   const [editing, setEditing] = useState<Field | null>(null);
   const [revealKey, setRevealKey] = useState(0);
@@ -85,6 +85,10 @@ export function TripComposer() {
           ...(activeQuestion ? { expecting: activeQuestion.field } : {}),
         }),
       });
+      if (response.status === 429) {
+        setStatus("rate_limited");
+        return;
+      }
       if (!response.ok) throw new Error(String(response.status));
       const data = (await response.json()) as ParseResponse;
       setIntent(data.intent);
@@ -214,6 +218,11 @@ export function TripComposer() {
           )}
         </AnimatePresence>
         {voice.error && <p className="text-sm text-destructive">{voice.error}</p>}
+        {status === "rate_limited" && (
+          <p role="alert" className="text-sm text-destructive">
+            Muchas consultas seguidas. Espera un minuto o llena los datos abajo.
+          </p>
+        )}
         {status === "error" && (
           <p className="text-sm text-destructive">
             No pudimos leer tu mensaje. Revisa tu señal o llena los datos abajo.
@@ -394,7 +403,7 @@ function FieldRow(props: {
               exit={{ opacity: 0 }}
               // Fields "type themselves in" one after another after each parse.
               transition={{ delay: props.index * 0.12, duration: 0.3 }}
-              className={cn("truncate font-medium", !props.value && "text-muted-foreground/70")}
+              className={cn("truncate font-medium", !props.value && "text-muted-foreground")}
             >
               {props.value ?? "Toca para elegir"}
             </motion.span>

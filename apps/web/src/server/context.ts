@@ -45,7 +45,10 @@ function createContext(): ServerContext {
     }),
     cities: CITIES,
     now,
-    clientLimiter: new RateLimiter({ capacity: 20, refillPerMinute: 20 }),
+    clientLimiter: new RateLimiter({
+      capacity: env.RATE_LIMIT_PER_MINUTE,
+      refillPerMinute: env.RATE_LIMIT_PER_MINUTE,
+    }),
     agentLlm: env.ANTHROPIC_API_KEY
       ? createAnthropicAgentLlm({ apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL })
       : undefined,

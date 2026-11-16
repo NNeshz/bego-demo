@@ -24,6 +24,11 @@ describe("parseEnv", () => {
     expect(env.dbEnabled).toBe(true);
   });
 
+  it("rate limit defaults to 20/min and is configurable", () => {
+    expect(parseEnv({}).RATE_LIMIT_PER_MINUTE).toBe(20);
+    expect(parseEnv({ RATE_LIMIT_PER_MINUTE: "500" }).RATE_LIMIT_PER_MINUTE).toBe(500);
+  });
+
   it("rejects malformed values with a readable message", () => {
     expect(() => parseEnv({ DATABASE_URL: "not-a-url" })).toThrow(/DATABASE_URL/);
   });

@@ -5,7 +5,13 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build", "typecheck"],
-      "env": ["ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "DATABASE_URL", "NEXT_PUBLIC_APP_URL"],
+      "env": [
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_MODEL",
+        "DATABASE_URL",
+        "NEXT_PUBLIC_APP_URL",
+        "RATE_LIMIT_PER_MINUTE"
+      ],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "dev": {
