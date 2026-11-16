@@ -4,7 +4,7 @@
   "globalEnv": ["NODE_ENV"],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "typecheck"],
       "env": ["ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "DATABASE_URL", "NEXT_PUBLIC_APP_URL"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
