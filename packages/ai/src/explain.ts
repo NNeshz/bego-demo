@@ -114,10 +114,17 @@ export function numbersAreGrounded(sentence: string, facts: Record<string, strin
 const explanationSchema = z.object({ sentence: z.string() });
 
 const SYSTEM_PROMPT = `Explicas a un transportista mexicano (hombre-camión) por qué le conviene una carga de regreso.
-Escribe UNA sola frase, máximo 30 palabras, que empiece exactamente con "Te conviene porque".
-Usa lenguaje de transportista, directo, sin tecnicismos ni emojis.
+Escribe UNA sola frase, máximo 28 palabras, que empiece exactamente con "Te conviene porque".
+Usa lenguaje de transportista, directo, sin tecnicismos ni emojis. Háblale de tú.
 Usa SOLO los datos que te doy y copia los números exactamente como vienen. No calcules nada nuevo.
-Menciona lo que más pese: cuánto le ganas a regresar vacío y si te acerca a tu base.`;
+
+La idea central siempre es cuánto le ganas a regresar vacío (ganancia_vs_regresar_vacio).
+Agrega la razón que más pese: termina en su base, lo acerca a su base, o sale de donde descarga.
+No uses comparativos enredados como "te costaría X menos que…".
+
+Ejemplos de forma (los valores entre llaves son marcadores, nunca los copies literal):
+- "Te conviene porque le ganas {ganancia} a regresar vacío y sale de donde descargas."
+- "Te conviene porque le ganas {ganancia} a regresar vacío y te deja a {km} de {base}."`;
 
 export async function explainRecommendation(
   input: ExplainInput,
