@@ -143,6 +143,10 @@ export const RecommendationSchema = z
       .meta({ description: "Money compared with driving home empty right now." }),
     scorePerHour: z.number(),
     explanation: ExplanationSchema.optional(),
+    features: z.record(z.string(), z.number()).optional().meta({
+      description:
+        "Ranking-model features (per-hour money, home savings, deadhead, wait). Log them with feedback events.",
+    }),
   })
   .meta({ id: "Recommendation" });
 

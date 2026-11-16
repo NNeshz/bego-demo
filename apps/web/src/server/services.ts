@@ -5,6 +5,7 @@
 import type { ParseTripContext } from "@retorno/ai";
 import { getCity, type NewRecommendationEvent } from "@retorno/db";
 import {
+  choiceFeatures,
   compareWeek,
   emptyReturnFrom,
   evaluateChain,
@@ -97,9 +98,12 @@ export async function getRecommendations(ctx: ServerContext, input: EngineInput)
     ...(input.weights ? { weights: input.weights } : {}),
   });
 
+  // Model features travel with each recommendation: the ML service and the app log the
+  // exact same vector, computed in one place (packages/engine).
+  const withFeatures = result.recommendations.map((r) => ({ ...r, features: choiceFeatures(r) }));
   const recommendations = input.explain
     ? await Promise.all(
-        result.recommendations.map(async (recommendation) => {
+        withFeatures.map(async (recommendation) => {
           const { text, source } = await ctx.ai.explain({
             kind: "load",
             recommendation,
@@ -108,7 +112,7 @@ export async function getRecommendations(ctx: ServerContext, input: EngineInput)
           return { ...recommendation, explanation: { text, source } };
         }),
       )
-    : result.recommendations;
+    : withFeatures;
 
   return roundDeep({
     ...result,
