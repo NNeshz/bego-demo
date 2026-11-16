@@ -14,7 +14,11 @@
     "test": "turbo run test",
     "check": "turbo run lint typecheck test build",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:generate": "pnpm --filter @retorno/db db:generate",
+    "db:migrate": "pnpm --filter @retorno/db db:migrate",
+    "db:seed": "pnpm --filter @retorno/db db:seed",
+    "db:studio": "pnpm --filter @retorno/db db:studio"
   },
   "devDependencies": {
     "@eslint/js": "catalog:",

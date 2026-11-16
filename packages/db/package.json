@@ -5,17 +5,28 @@
   "description": "Drizzle schema, deterministic seed and in-memory data source.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
   },
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx --env-file-if-exists=../../apps/web/.env.local src/scripts/seed.ts",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "1.2.1",
+    "@retorno/engine": "workspace:*",
+    "drizzle-orm": "0.45.4"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "drizzle-kit": "0.31.11",
     "eslint": "catalog:",
-    "fast-check": "catalog:",
+    "tsx": "4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

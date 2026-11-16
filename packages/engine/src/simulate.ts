@@ -12,8 +12,8 @@ export interface FleetTruck {
 }
 
 /**
- * - `empty_return`: today's behavior. Take the best load leaving from your base,
- *   deliver it, drive home empty, repeat.
+ * - `empty_return`: today's behavior. Only look for loads in the city where you
+ *   are (≤ `baselineMaxDeadheadKm`); if nothing worthwhile is there, drive home empty.
  * - `recommended`: at every decision point take the engine's best recommendation
  *   that beats going home empty; otherwise drive home.
  */
@@ -54,9 +54,13 @@ export interface SimSeriesPoint extends Omit<SimTotals, "loadsDelivered"> {
 export interface SimulationResult {
   policy: SimulationPolicy;
   startMs: number;
+  /** End of the decision horizon. Trips started before it finish, then every truck drives home. */
   endMs: number;
   segments: SimSegment[];
-  /** Cumulative KPIs, one point per hour (prorated within segments). Drives the live counter. */
+  /**
+   * Cumulative KPIs, one point per hour (prorated within segments), until every
+   * truck is back at base. Drives the live counter.
+   */
   series: SimSeriesPoint[];
   totals: SimTotals;
 }
@@ -66,8 +70,10 @@ export interface SimulationOptions extends EngineOptions {
   start: string;
   /** Default 7. */
   days?: number;
-  /** In `empty_return`, "from your base" means a pickup within this many road km. Default 80. */
+  /** In `empty_return`, "in the same city" means a pickup within this many road km. Default 80. */
   baselineMaxDeadheadKm?: number;
+  /** In `empty_return`, away from base a trucker won't wait longer than this for a load. Default 6h. */
+  baselineMaxWaitHours?: number;
   /** How long a truck waits at base when nothing is worth taking. Default 4h. */
   idleHours?: number;
 }
@@ -88,7 +94,10 @@ export function simulateWeek(
   const startMs = Date.parse(options.start);
   const endMs = startMs + (options.days ?? 7) * 24 * HOUR_MS;
   const idleMs = (options.idleHours ?? 4) * HOUR_MS;
-  const baselineMaxDeadheadKm = options.baselineMaxDeadheadKm ?? 80;
+  const baseline = {
+    maxDeadheadKm: options.baselineMaxDeadheadKm ?? 80,
+    maxWaitHours: options.baselineMaxWaitHours ?? 6,
+  };
 
   const pool = new Map(loads.map((load) => [load.id, load]));
   const runtimes: TruckRuntime[] = [...fleet]
@@ -108,10 +117,7 @@ export function simulateWeek(
       base: runtime.truck.base,
     };
     const atBase = runtime.position.cityId === runtime.truck.base.cityId;
-    const choice = chooseLoad(state, [...pool.values()], policy, atBase, {
-      ...options,
-      baselineMaxDeadheadKm,
-    });
+    const choice = chooseLoad(state, [...pool.values()], policy, atBase, options, baseline);
 
     if (choice) {
       pool.delete(choice.load.id);
@@ -134,9 +140,18 @@ export function simulateWeek(
     }
   }
 
-  const series = buildSeries(segments, startMs, endMs);
+  // Close the books: every truck ends the period at home. That last empty trip
+  // is exactly the cost we are trying to reduce, so it must be counted.
+  for (const runtime of runtimes) {
+    if (runtime.position.cityId !== runtime.truck.base.cityId) {
+      segments.push(driveHome(runtime, costs));
+    }
+  }
+
+  const closedMs = Math.max(endMs, ...segments.map((s) => s.endMs));
+  const series = buildSeries(segments, startMs, closedMs);
   const last = series[series.length - 1]!;
-  const loadsDelivered = segments.filter((s) => s.kind === "loaded" && s.endMs <= endMs).length;
+  const loadsDelivered = segments.filter((s) => s.kind === "loaded").length;
   const { hour: _hour, atMs: _atMs, ...totals } = last;
 
   return { policy, startMs, endMs, segments, series, totals: { ...totals, loadsDelivered } };
@@ -157,19 +172,24 @@ function chooseLoad(
   pool: Load[],
   policy: SimulationPolicy,
   atBase: boolean,
-  options: SimulationOptions & { baselineMaxDeadheadKm: number },
+  options: SimulationOptions,
+  baseline: { maxDeadheadKm: number; maxWaitHours: number },
 ): Recommendation | undefined {
   if (policy === "recommended") {
     return rankLoads(state, pool, { ...options, minGainVsEmptyMxn: 0 }).ranked[0];
   }
-  // Baseline: only looks for work at home, and only cares that the load itself pays.
-  if (!atBase) return undefined;
+  // Baseline ("how it works today"): the trucker only finds work in the city
+  // where they are. At base they take the best paying load; away from base they
+  // take a return load from the same city if it shows up soon and beats driving
+  // home empty. Otherwise they head home.
   const { ranked } = rankLoads(state, pool, {
     ...options,
-    costs: { ...options.costs, maxDeadheadKm: options.baselineMaxDeadheadKm },
-    minGainVsEmptyMxn: Number.NEGATIVE_INFINITY,
+    costs: { ...options.costs, maxDeadheadKm: baseline.maxDeadheadKm },
+    minGainVsEmptyMxn: atBase ? Number.NEGATIVE_INFINITY : 0,
   });
-  return ranked.find((rec) => rec.breakdown.netProfitMxn > 0);
+  return atBase
+    ? ranked.find((rec) => rec.breakdown.netProfitMxn > 0)
+    : ranked.find((rec) => rec.waitHours <= baseline.maxWaitHours);
 }
 
 function haul(runtime: TruckRuntime, rec: Recommendation): SimSegment[] {
