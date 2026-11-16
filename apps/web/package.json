@@ -13,6 +13,7 @@
     "vendor": "node scripts/copy-vendor.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@retorno/ai": "workspace:*",
     "@retorno/db": "workspace:*",
     "@retorno/engine": "workspace:*",

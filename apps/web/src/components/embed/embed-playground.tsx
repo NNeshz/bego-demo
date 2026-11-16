@@ -69,7 +69,7 @@ export function EmbedPlayground({ origin }: { origin: string }) {
   const dark = hostTheme === "dark";
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
       <Script src="/widget.js" strategy="afterInteractive" />
 
       {/* Fake host app: deliberately NOT Retorno's look, to show the widget adapts. */}

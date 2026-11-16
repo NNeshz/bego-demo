@@ -11,6 +11,10 @@ export function SiteFooter() {
         Widget
       </Link>
       <span aria-hidden>·</span>
+      <Link href="/agent" className="hover:text-foreground hover:underline">
+        Agente
+      </Link>
+      <span aria-hidden>·</span>
       <Link href="/docs" className="hover:text-foreground hover:underline">
         API
       </Link>

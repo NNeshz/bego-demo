@@ -1,4 +1,10 @@
-import { createAiService, RateLimiter, type AiService } from "@retorno/ai";
+import {
+  createAiService,
+  createAnthropicAgentLlm,
+  RateLimiter,
+  type AgentLlm,
+  type AiService,
+} from "@retorno/ai";
 import { CITIES, createDataSource, type City, type DataSource } from "@retorno/db";
 import { env } from "@/env";
 
@@ -14,6 +20,8 @@ export interface ServerContext {
   now: () => Date;
   /** Per-client limiter for expensive endpoints (AI calls). */
   clientLimiter: RateLimiter;
+  /** Tool-use model for /agent. Undefined without an API key (deterministic fallback agent). */
+  agentLlm?: AgentLlm | undefined;
 }
 
 const store = globalThis as typeof globalThis & { __retornoContext?: ServerContext };
@@ -38,6 +46,9 @@ function createContext(): ServerContext {
     cities: CITIES,
     now,
     clientLimiter: new RateLimiter({ capacity: 20, refillPerMinute: 20 }),
+    agentLlm: env.ANTHROPIC_API_KEY
+      ? createAnthropicAgentLlm({ apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL })
+      : undefined,
   };
 }
 

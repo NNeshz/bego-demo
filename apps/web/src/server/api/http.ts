@@ -91,13 +91,13 @@ function zodDetails(error: z.ZodError) {
 export async function readJson<S extends z.ZodType>(
   request: Request,
   schema: S,
+  maxBytes = MAX_BODY_BYTES,
 ): Promise<z.output<S>> {
   const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > MAX_BODY_BYTES)
-    throw new ApiError(413, "payload_too_large", "Request body is too large.");
+  if (length > maxBytes) throw new ApiError(413, "payload_too_large", "Request body is too large.");
 
   const text = await request.text();
-  if (text.length > MAX_BODY_BYTES)
+  if (text.length > maxBytes)
     throw new ApiError(413, "payload_too_large", "Request body is too large.");
 
   let raw: unknown;
