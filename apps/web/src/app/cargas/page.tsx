@@ -2,6 +2,7 @@ import { getCity } from "@retorno/db/cities";
 import { UNIT_LABELS } from "@retorno/engine";
 import { ArrowLeft, Pencil } from "lucide-react";
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AppHeader } from "@/components/app-header";
@@ -36,6 +37,8 @@ async function Results({ searchParams }: { searchParams: PageProps<"/cargas">["s
   const trip = parseTripParams(await searchParams);
   if (!trip) return <InvalidTrip />;
 
+  // The market is rebased to "today": opt into request time before reading the clock.
+  await connection();
   const ctx = getContext();
   const now = ctx.now();
   const truck = tripToTruckInput(trip);

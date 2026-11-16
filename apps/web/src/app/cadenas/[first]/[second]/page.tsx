@@ -1,5 +1,6 @@
 import { getCity } from "@retorno/db/cities";
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { AppHeader } from "@/components/app-header";
 import { DetailView } from "@/components/detail/detail-view";
@@ -35,6 +36,8 @@ async function Detail({
   const trip = parseTripParams(query);
   if (!trip) return <InvalidTrip />;
 
+  // The market is rebased to "today": opt into request time before reading the clock.
+  await connection();
   const ctx = getContext();
   const detail = await getChainDetail(ctx, tripToTruckInput(trip), first, second);
   const backHref = `/cargas?${tripQuery(trip)}`;
