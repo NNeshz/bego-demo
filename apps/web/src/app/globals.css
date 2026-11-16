@@ -153,6 +153,9 @@
       0 1px 0 0 oklch(1 0 0 / 6%) inset,
       0 20px 40px -24px oklch(0 0 0 / 60%);
   }
+  .control {
+    @apply h-10 w-full rounded-xl border bg-background px-2.5 font-sans text-sm text-foreground;
+  }
   .eyebrow {
     @apply text-[0.7rem] font-medium tracking-[0.18em] text-muted-foreground uppercase;
   }

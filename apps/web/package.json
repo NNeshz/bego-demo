@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",
+    "@retorno/widget": "workspace:*",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "catalog:",
     "@types/react": "^19",

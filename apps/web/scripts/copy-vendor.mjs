@@ -1,9 +1,10 @@
-// Copies third-party files that must be served as standalone URLs into public/vendor.
+// Copies files that must be served as standalone URLs into public/ (all gitignored).
 //
-// MapLibre resolves its Web Worker relative to its own module URL. Once bundled,
-// that URL points into /_next/static/chunks where the worker doesn't exist, so
-// we serve it ourselves and call setWorkerUrl(). The version is in the filename
-// so browsers can cache it forever and never mix versions.
+// 1. MapLibre's Web Worker: MapLibre resolves it relative to its own module URL,
+//    which doesn't exist once bundled, so we serve it and call setWorkerUrl().
+//    The version is in the filename so it can be cached forever.
+// 2. The embeddable widget (/widget.js), built from packages/widget.
+import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -11,13 +12,19 @@ import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
 const appDir = join(dirname(fileURLToPath(import.meta.url)), "..");
-const pkgPath = require.resolve("maplibre-gl/package.json");
-const { version } = JSON.parse(readFileSync(pkgPath, "utf8"));
+const publicDir = join(appDir, "public");
 
-const outDir = join(appDir, "public", "vendor");
-mkdirSync(outDir, { recursive: true });
+const maplibrePkg = require.resolve("maplibre-gl/package.json");
+const { version } = JSON.parse(readFileSync(maplibrePkg, "utf8"));
+mkdirSync(join(publicDir, "vendor"), { recursive: true });
 copyFileSync(
-  join(dirname(pkgPath), "dist", "maplibre-gl-worker.mjs"),
-  join(outDir, `maplibre-gl-worker-${version}.mjs`),
+  join(dirname(maplibrePkg), "dist", "maplibre-gl-worker.mjs"),
+  join(publicDir, "vendor", `maplibre-gl-worker-${version}.mjs`),
 );
 console.log(`vendor: maplibre-gl-worker-${version}.mjs`);
+
+// esbuild takes ~50 ms: always rebuild so `pnpm dev` never serves a stale widget.
+const widgetDir = dirname(require.resolve("@retorno/widget/package.json"));
+execFileSync("node", ["build.mjs"], { cwd: widgetDir, stdio: "inherit" });
+copyFileSync(join(widgetDir, "dist", "retorno-widget.js"), join(publicDir, "widget.js"));
+console.log("vendor: widget.js");

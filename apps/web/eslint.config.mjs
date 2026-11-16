@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Third-party files copied by scripts/copy-vendor.mjs.
     "public/vendor/**",
+    "public/widget.js",
   ]),
 ]);
 

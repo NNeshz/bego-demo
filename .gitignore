@@ -25,3 +25,4 @@ apps/web/public/vendor
 
 # Local throwaway scripts
 *.tmp.mjs
+apps/web/public/widget.js
