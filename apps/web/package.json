@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "vendor": "node scripts/copy-vendor.mjs"
+    "vendor": "node scripts/copy-vendor.mjs",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
@@ -34,6 +35,7 @@
     "zod-openapi": "6.0.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@playwright/test": "1.65.1",
     "@retorno/widget": "workspace:*",
     "@tailwindcss/turbopack": "4.3.3",

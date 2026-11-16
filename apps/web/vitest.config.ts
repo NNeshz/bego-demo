@@ -7,6 +7,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    exclude: ["e2e/**", "node_modules/**"],
     // Tests must not depend on a developer's local services or API keys.
     env: { DATABASE_URL: "", ANTHROPIC_API_KEY: "" },
   },
