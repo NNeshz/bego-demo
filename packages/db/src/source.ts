@@ -14,6 +14,8 @@ export interface DataSource {
   listLoads(): Promise<Load[]>;
   listTrucks(): Promise<Truck[]>;
   recordEvent(event: NewRecommendationEvent): Promise<RecommendationEvent>;
+  /** Insert several events atomically (e.g. every option shown on one screen). */
+  recordEvents(events: NewRecommendationEvent[]): Promise<RecommendationEvent[]>;
   listEvents(limit?: number): Promise<RecommendationEvent[]>;
   /** Start of the market window (today 00:00 Mexico City), ISO-8601. Used by the simulator. */
   marketStart(): string;
@@ -50,6 +52,15 @@ export function createMemorySource(options: SourceOptions & { seed?: SeedData } 
   const now = options.now ?? (() => new Date());
   const seed = options.seed ?? defaultSeed();
   const events: RecommendationEvent[] = [];
+  const recordEvents = async (batch: NewRecommendationEvent[]) => {
+    const stored = batch.map((event): RecommendationEvent => ({
+      ...event,
+      id: crypto.randomUUID(),
+      createdAt: now().toISOString(),
+    }));
+    events.push(...stored);
+    return stored;
+  };
 
   return {
     kind: "memory",
@@ -62,15 +73,8 @@ export function createMemorySource(options: SourceOptions & { seed?: SeedData } 
       const shift = seedShiftMs(now());
       return seed.trucks.map((truck) => rebaseTruck(truck, shift));
     },
-    recordEvent: async (event) => {
-      const stored: RecommendationEvent = {
-        ...event,
-        id: crypto.randomUUID(),
-        createdAt: now().toISOString(),
-      };
-      events.push(stored);
-      return stored;
-    },
+    recordEvent: async (event) => (await recordEvents([event]))[0]!,
+    recordEvents,
     listEvents: async (limit = 100) => events.slice(-limit).reverse(),
     marketStart: () => marketStartIso(now()),
   };
@@ -108,6 +112,12 @@ export function withFallback(
         "recordEvent",
         () => primary.recordEvent(event),
         () => fallback.recordEvent(event),
+      ),
+    recordEvents: (batch) =>
+      run(
+        "recordEvents",
+        () => primary.recordEvents(batch),
+        () => fallback.recordEvents(batch),
       ),
     listEvents: (limit) =>
       run(

@@ -29,6 +29,8 @@ export interface Truck {
 }
 
 export const EVENT_ACTIONS = ["shown", "accepted", "rejected"] as const;
+export const EVENT_SOURCES = ["app", "widget", "agent", "simulator"] as const;
+export type EventSource = (typeof EVENT_SOURCES)[number];
 export type EventAction = (typeof EVENT_ACTIONS)[number];
 
 /**
@@ -44,6 +46,14 @@ export interface NewRecommendationEvent {
   scorePerHour: number;
   gainVsEmptyMxn: number;
   features: Record<string, number>;
+  /**
+   * Groups the options shown together in one screen. "shown" events give the
+   * model its negatives (options seen and not taken); without them it can't learn.
+   */
+  decisionId?: string | undefined;
+  /** How the shown list was built: "engine" (top-k by current weights) or "explore" (randomized). */
+  policy?: string | undefined;
+  source?: EventSource | undefined;
 }
 
 export interface RecommendationEvent extends NewRecommendationEvent {

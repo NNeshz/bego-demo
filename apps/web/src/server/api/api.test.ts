@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 import { POST as chainsPOST } from "@/app/api/v1/chains/route";
 import { GET as citiesGET } from "@/app/api/v1/cities/route";
+import { POST as eventsBatchPOST } from "@/app/api/v1/events/batch/route";
 import { GET as eventsGET, POST as eventsPOST } from "@/app/api/v1/events/route";
 import { GET as fleetGET } from "@/app/api/v1/fleet/route";
 import { GET as healthGET } from "@/app/api/v1/health/route";
@@ -326,6 +327,44 @@ describe("/events", () => {
     expect(list.events[0].id).toBe(created.id);
   });
 
+  it("stores a whole decision in one batch", async () => {
+    const decisionId = crypto.randomUUID();
+    const events = [1, 2, 3].map((rank) => ({
+      action: "shown",
+      loadIds: [`CRG-000${rank}`],
+      rank,
+      scorePerHour: 900,
+      gainVsEmptyMxn: 10_000,
+      features: { net_per_hour: 400 },
+      decisionId,
+      policy: "engine",
+      source: "app",
+    }));
+    const response = await post(eventsBatchPOST, "/events/batch", { events });
+    expect(response.status).toBe(201);
+    const body = await response.json();
+    expect(body.events).toHaveLength(3);
+    for (const event of body.events) EventSchema.parse(event);
+    expect(body.events[2]).toMatchObject({ rank: 3, decisionId, source: "app" });
+  });
+
+  it("rejects malformed decision ids and empty batches", async () => {
+    const bad = {
+      action: "shown",
+      loadIds: ["CRG-0001"],
+      rank: 1,
+      scorePerHour: 1,
+      gainVsEmptyMxn: 1,
+      decisionId: "nope",
+    };
+    await expectJson(await post(eventsPOST, "/events", bad), 400, ErrorSchema);
+    await expectJson(
+      await post(eventsBatchPOST, "/events/batch", { events: [] }),
+      400,
+      ErrorSchema,
+    );
+  });
+
   it("validates feedback", async () => {
     await expectJson(
       await post(eventsPOST, "/events", { action: "liked", loadIds: [] }),
@@ -393,6 +432,7 @@ describe("GET /openapi.json", () => {
         "/chains",
         "/cities",
         "/events",
+        "/events/batch",
         "/fleet",
         "/health",
         "/parse-trip",

@@ -54,6 +54,32 @@ describe.skipIf(!databaseUrl)("postgres source (integration)", () => {
     expect(byId(await source.listCities())).toEqual(byId(await memory.listCities()));
   });
 
+  it("stores a decision batch with its grouping fields", async () => {
+    const decisionId = crypto.randomUUID();
+    const stored = await source.recordEvents(
+      [1, 2].map((rank) => ({
+        action: "shown" as const,
+        loadIds: [`CRG-000${rank}`],
+        rank,
+        scorePerHour: 900,
+        gainVsEmptyMxn: 12_000,
+        features: { net_per_hour: 480.5, wait_per_hour: 0.1 },
+        decisionId,
+        policy: "explore",
+        source: "simulator" as const,
+      })),
+    );
+    createdEventIds.push(...stored.map((e) => e.id));
+    expect(stored).toHaveLength(2);
+    expect(stored[1]).toMatchObject({
+      rank: 2,
+      decisionId,
+      policy: "explore",
+      source: "simulator",
+    });
+    expect(stored[0]!.features).toEqual({ net_per_hour: 480.5, wait_per_hour: 0.1 });
+  });
+
   it("round-trips recommendation events", async () => {
     const stored = await source.recordEvent({
       action: "accepted",

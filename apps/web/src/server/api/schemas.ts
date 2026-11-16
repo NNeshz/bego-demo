@@ -4,7 +4,7 @@
  * responses with them, so docs and behavior can't drift apart.
  */
 import { TRIP_FIELDS } from "@retorno/ai";
-import { EVENT_ACTIONS, TRUCK_STATUSES } from "@retorno/db";
+import { EVENT_ACTIONS, EVENT_SOURCES, TRUCK_STATUSES } from "@retorno/db";
 import { UNIT_TYPES } from "@retorno/engine";
 import { z } from "zod";
 import "zod-openapi";
@@ -268,8 +268,25 @@ export const EventRequestSchema = z
       .record(z.string().max(64), z.number())
       .refine((f) => Object.keys(f).length <= 50, "At most 50 features")
       .default({}),
+    decisionId: z.uuid().optional().meta({
+      description:
+        "Groups the options shown together on one screen. Needed to learn from what was NOT chosen.",
+    }),
+    policy: z
+      .string()
+      .max(32)
+      .optional()
+      .meta({ description: "How the list was built, e.g. engine or explore." }),
+    source: z.enum(EVENT_SOURCES).optional(),
   })
-  .meta({ id: "EventRequest", description: "Feedback signal for the future ranking model." });
+  .meta({ id: "EventRequest", description: "Feedback signal for the ranking model." });
+
+export const EventBatchRequestSchema = z
+  .object({ events: z.array(EventRequestSchema).min(1).max(30) })
+  .meta({
+    id: "EventBatchRequest",
+    description: "Several events stored atomically, e.g. every option shown in a decision.",
+  });
 
 export const EventSchema = EventRequestSchema.extend({
   id: z.string(),

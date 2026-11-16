@@ -38,6 +38,12 @@ export function parseTripParams(params: RawParams): Trip | null {
   };
 }
 
+/** `?d=<uuid>` from the results screen; anything else is ignored. */
+export function decisionIdParam(value: string | string[] | undefined): string | undefined {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return z.uuid().safeParse(raw).success ? raw : undefined;
+}
+
 export function tripQuery(trip: Trip): string {
   return new URLSearchParams({
     desde: trip.unloadCityId,

@@ -1,5 +1,5 @@
 import { getCity } from "@retorno/db/cities";
-import { UNIT_LABELS } from "@retorno/engine";
+import { choiceFeatures, UNIT_LABELS } from "@retorno/engine";
 import { ArrowLeft, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import { connection } from "next/server";
@@ -8,6 +8,7 @@ import { Suspense } from "react";
 import { AppHeader } from "@/components/app-header";
 import { ChainCard } from "@/components/loads/chain-card";
 import { EmptyState } from "@/components/loads/empty-state";
+import { ImpressionLogger, type ShownEvent } from "@/components/loads/impression-logger";
 import { RecommendationCard } from "@/components/loads/recommendation-card";
 import { ResultsTabs } from "@/components/loads/results-tabs";
 import { FadeIn } from "@/components/motion";
@@ -47,7 +48,21 @@ async function Results({ searchParams }: { searchParams: PageProps<"/cargas">["s
     getChains(ctx, { truck, limit: 3, explain: false, beamWidth: 20 }),
   ]);
 
+  // One screen = one decision: every option shown is logged under this id (the model's negatives),
+  // and the detail links carry it so accept/reject joins the same decision.
+  const decisionId = crypto.randomUUID();
   const query = tripQuery(trip);
+  const shown: ShownEvent[] = result.recommendations.map((r, i) => ({
+    action: "shown",
+    loadIds: [r.load.id],
+    rank: i + 1,
+    scorePerHour: r.scorePerHour,
+    gainVsEmptyMxn: r.gainVsEmptyMxn,
+    features: { ...choiceFeatures(r) },
+    decisionId,
+    policy: "engine",
+    source: "app",
+  }));
   const unload = getCity(trip.unloadCityId);
   const base = getCity(trip.baseCityId);
   const emptyCost = result.emptyReturn.costMxn;
@@ -111,6 +126,9 @@ async function Results({ searchParams }: { searchParams: PageProps<"/cargas">["s
           editHref={`/?${query}`}
         />
       ) : (
+        <ImpressionLogger events={shown} />
+      )}
+      {result.recommendations.length > 0 && (
         <ResultsTabs
           tabs={[
             {
@@ -122,7 +140,7 @@ async function Results({ searchParams }: { searchParams: PageProps<"/cargas">["s
                   <RecommendationCard
                     recommendation={recommendation}
                     rank={i + 1}
-                    href={`/cargas/${recommendation.load.id}?${query}&rank=${i + 1}`}
+                    href={`/cargas/${recommendation.load.id}?${query}&rank=${i + 1}&d=${decisionId}`}
                     emptyReturnCostMxn={emptyCost}
                     scale={scale}
                     now={now}
@@ -144,7 +162,7 @@ async function Results({ searchParams }: { searchParams: PageProps<"/cargas">["s
                     <FadeIn key={`${chain.legs[0].load.id}-${chain.legs[1].load.id}`} index={i}>
                       <ChainCard
                         chain={chain}
-                        href={`/cadenas/${chain.legs[0].load.id}/${chain.legs[1].load.id}?${query}&rank=${i + 1}`}
+                        href={`/cadenas/${chain.legs[0].load.id}/${chain.legs[1].load.id}?${query}&rank=${i + 1}&d=${decisionId}`}
                         emptyReturnCostMxn={emptyCost}
                         scale={scale}
                         now={now}

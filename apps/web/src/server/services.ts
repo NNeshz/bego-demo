@@ -197,6 +197,10 @@ export async function recordEvent(ctx: ServerContext, event: NewRecommendationEv
   return ctx.data.recordEvent(event);
 }
 
+export async function recordEvents(ctx: ServerContext, events: NewRecommendationEvent[]) {
+  return ctx.data.recordEvents(events);
+}
+
 export async function listEvents(ctx: ServerContext, limit: number) {
   return ctx.data.listEvents(limit);
 }

@@ -4,6 +4,7 @@ import {
   ChainsResponseSchema,
   CitySchema,
   ErrorSchema,
+  EventBatchRequestSchema,
   EventRequestSchema,
   EventSchema,
   HealthSchema,
@@ -126,6 +127,18 @@ export function buildOpenApiDocument() {
             "List recent feedback",
             "Newest first.",
             z.object({ events: z.array(EventSchema) }),
+          ),
+          tags: ["Feedback"],
+        },
+      },
+      "/events/batch": {
+        post: {
+          ...post(
+            "Record a decision",
+            "Store several events at once (all-or-nothing): typically every option shown on one screen, sharing a decisionId.",
+            EventBatchRequestSchema,
+            z.object({ events: z.array(EventSchema) }),
+            "201",
           ),
           tags: ["Feedback"],
         },

@@ -1,4 +1,5 @@
 import { getCity } from "@retorno/db/cities";
+import { chainChoiceFeatures } from "@retorno/engine";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Suspense } from "react";
@@ -6,7 +7,7 @@ import { AppHeader } from "@/components/app-header";
 import { DetailView } from "@/components/detail/detail-view";
 import { DetailSkeleton, LoadGone } from "@/components/detail/states";
 import { InvalidTrip } from "@/components/invalid-trip";
-import { parseTripParams, tripQuery, tripToTruckInput } from "@/lib/trip-params";
+import { decisionIdParam, parseTripParams, tripQuery, tripToTruckInput } from "@/lib/trip-params";
 import { getContext } from "@/server/context";
 import { getChainDetail } from "@/server/services";
 
@@ -56,6 +57,8 @@ async function Detail({
       rank={rank}
       backHref={backHref}
       now={ctx.now()}
+      features={{ ...chainChoiceFeatures(chain) }}
+      decisionId={decisionIdParam(query.d)}
     />
   );
 }

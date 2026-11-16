@@ -36,6 +36,25 @@ describe("memory source", () => {
     );
   });
 
+  it("records a decision (several shown options) in one batch", async () => {
+    const source = createMemorySource({ now: () => MONDAY });
+    const decisionId = crypto.randomUUID();
+    const shown = [1, 2, 3].map((rank) => ({
+      action: "shown" as const,
+      loadIds: [`CRG-000${rank}`],
+      rank,
+      scorePerHour: 1_000 - rank,
+      gainVsEmptyMxn: 10_000,
+      features: { net_per_hour: 500 },
+      decisionId,
+      policy: "engine",
+      source: "app" as const,
+    }));
+    const stored = await source.recordEvents(shown);
+    expect(stored.map((e) => e.rank)).toEqual([1, 2, 3]);
+    expect(stored.every((e) => e.decisionId === decisionId && e.source === "app")).toBe(true);
+  });
+
   it("records and lists events, newest first", async () => {
     const source = createMemorySource({ now: () => MONDAY });
     const base = {
@@ -60,6 +79,7 @@ describe("withFallback", () => {
     listLoads: () => Promise.reject(new Error("db down")),
     listTrucks: () => Promise.reject(new Error("db down")),
     recordEvent: () => Promise.reject(new Error("db down")),
+    recordEvents: () => Promise.reject(new Error("db down")),
     listEvents: () => Promise.reject(new Error("db down")),
     marketStart: () => "2026-11-16T06:00:00.000Z",
   };

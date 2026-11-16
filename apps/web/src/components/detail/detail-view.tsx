@@ -38,6 +38,8 @@ export function DetailView({
   rank,
   backHref,
   now,
+  features,
+  decisionId,
 }: {
   truck: TruckState;
   legs: Recommendation[];
@@ -47,6 +49,9 @@ export function DetailView({
   rank: number;
   backHref: string;
   now: Date;
+  /** Model features of this option (choiceFeatures / chainChoiceFeatures from the engine). */
+  features: Record<string, number>;
+  decisionId?: string | undefined;
 }) {
   const sum = (pick: (r: Recommendation) => number) =>
     legs.reduce((total, leg) => total + pick(leg), 0);
@@ -182,15 +187,13 @@ export function DetailView({
           scorePerHour: totals.scorePerHour,
           gainVsEmptyMxn: totals.gainVsEmptyMxn,
           features: {
-            legs: legs.length,
-            deadheadKm: totals.totalEmptyKm,
-            loadedKm: totals.totalLoadedKm,
-            waitHours: sum((l) => l.waitHours),
-            totalHours: totals.totalHours,
-            kmCloserToBase: emptyReturn.km - totals.returnHomeKm,
-            netProfitMxn: totals.netProfitMxn,
-            rateMxn: sum((l) => l.breakdown.rateMxn),
+            ...features,
+            loaded_km: totals.totalLoadedKm,
+            rate_mxn: sum((l) => l.breakdown.rateMxn),
           },
+          decisionId,
+          policy: "engine",
+          source: "app",
         }}
       />
     </>

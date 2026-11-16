@@ -15,7 +15,7 @@ import {
   type SourceOptions,
 } from "./source";
 import { seedShiftMs } from "./time";
-import type { City, RecommendationEvent, Truck } from "./types";
+import type { City, NewRecommendationEvent, RecommendationEvent, Truck } from "./types";
 
 /** Driver-agnostic Drizzle database: the query API is identical for both drivers. */
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -85,6 +85,25 @@ export function createPostgresSource(
     return toPlace(city);
   };
 
+  const recordEvents = async (events: NewRecommendationEvent[]) => {
+    if (events.length === 0) return [];
+    // One multi-row INSERT: all options of a decision are stored, or none.
+    const rows = await db
+      .insert(schema.recommendationEvents)
+      .values(
+        events.map((event) => ({
+          ...event,
+          truckId: event.truckId ?? null,
+          decisionId: event.decisionId ?? null,
+          policy: event.policy ?? null,
+          source: event.source ?? null,
+        })),
+      )
+      .returning();
+    if (rows.length !== events.length) throw new Error("Insert returned fewer rows than expected");
+    return rows.map(toEvent);
+  };
+
   return {
     kind: "postgres",
 
@@ -132,14 +151,8 @@ export function createPostgresSource(
       );
     },
 
-    recordEvent: async (event) => {
-      const [row] = await db
-        .insert(schema.recommendationEvents)
-        .values({ ...event, truckId: event.truckId ?? null })
-        .returning();
-      if (!row) throw new Error("Insert returned no row");
-      return toEvent(row);
-    },
+    recordEvent: async (event) => (await recordEvents([event]))[0]!,
+    recordEvents,
 
     listEvents: async (limit = 100) => {
       const rows = await db
@@ -167,5 +180,8 @@ function toEvent(row: typeof schema.recommendationEvents.$inferSelect): Recommen
     scorePerHour: row.scorePerHour,
     gainVsEmptyMxn: row.gainVsEmptyMxn,
     features: row.features,
+    decisionId: row.decisionId ?? undefined,
+    policy: row.policy ?? undefined,
+    source: row.source ?? undefined,
   };
 }

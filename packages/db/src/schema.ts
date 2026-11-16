@@ -1,6 +1,7 @@
 import { UNIT_TYPES } from "@retorno/engine";
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   doublePrecision,
   index,
   integer,
@@ -11,7 +12,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { EVENT_ACTIONS, TRUCK_STATUSES } from "./types";
+import { EVENT_ACTIONS, EVENT_SOURCES, TRUCK_STATUSES } from "./types";
 
 export const unitTypeEnum = pgEnum("unit_type", UNIT_TYPES);
 export const truckStatusEnum = pgEnum("truck_status", TRUCK_STATUSES);
@@ -80,6 +81,25 @@ export const recommendationEvents = pgTable(
     scorePerHour: doublePrecision("score_per_hour").notNull(),
     gainVsEmptyMxn: doublePrecision("gain_vs_empty_mxn").notNull(),
     features: jsonb("features").$type<Record<string, number>>().notNull(),
+    decisionId: uuid("decision_id"),
+    policy: text("policy"),
+    source: text("source", { enum: EVENT_SOURCES }),
   },
-  (table) => [index("recommendation_events_created_idx").on(table.createdAt)],
+  (table) => [
+    index("recommendation_events_created_idx").on(table.createdAt),
+    index("recommendation_events_decision_idx").on(table.decisionId),
+  ],
 );
+
+/** Every trained ranking model, newest last. The active one is the latest with active = true. */
+export const modelVersions = pgTable("model_versions", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  createdAt: timestamptz("created_at")
+    .notNull()
+    .default(sql`now()`),
+  weights: jsonb("weights").$type<Record<string, number>>().notNull(),
+  coefficients: jsonb("coefficients").$type<Record<string, number>>().notNull(),
+  metrics: jsonb("metrics").$type<Record<string, unknown>>().notNull(),
+  trainedOn: integer("trained_on").notNull(),
+  active: boolean("active").notNull().default(true),
+});
