@@ -4,6 +4,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
 import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
+import { arcPoints } from "@/lib/geo-arc";
+import { loadMaplibre, MAP_COLORS, MAP_STYLES } from "@/lib/maplibre";
 import { cn } from "@/lib/utils";
 
 export interface MapPoint {
@@ -22,48 +24,11 @@ export interface MapSegment {
   to: MapPoint;
 }
 
-// OpenFreeMap: free vector tiles from OpenStreetMap data, no API key.
-const STYLES = {
-  light: "https://tiles.openfreemap.org/styles/positron",
-  dark: "https://tiles.openfreemap.org/styles/dark",
-};
-// MapLibre paint properties don't understand oklch() tokens: use hex per theme.
-const COLORS = {
-  light: {
-    loaded: "#e8a919",
-    empty: "#7c8494",
-    home: "#9aa1ad",
-    vehicle: "#12151b",
-    halo: "#fffdeb",
-  },
-  dark: {
-    loaded: "#f3e23f",
-    empty: "#9aa3b2",
-    home: "#6f7785",
-    vehicle: "#f3e23f",
-    halo: "#0e1116",
-  },
-};
-
 const ARC_POINTS = 48;
 const LOOP_MS = 7_000;
-
-/** A gentle curve between two points so legs that overlap stay readable. Not the real road. */
-function arc(from: MapPoint, to: MapPoint): [number, number][] {
-  const dx = to.lng - from.lng;
-  const dy = to.lat - from.lat;
-  const bend = 0.12;
-  const cx = (from.lng + to.lng) / 2 - dy * bend;
-  const cy = (from.lat + to.lat) / 2 + dx * bend;
-  return Array.from({ length: ARC_POINTS + 1 }, (_, i) => {
-    const t = i / ARC_POINTS;
-    const u = 1 - t;
-    return [
-      u * u * from.lng + 2 * u * t * cx + t * t * to.lng,
-      u * u * from.lat + 2 * u * t * cy + t * t * to.lat,
-    ];
-  });
-}
+const STYLES = MAP_STYLES;
+const COLORS = MAP_COLORS;
+const arc = (from: MapPoint, to: MapPoint) => arcPoints(from, to, ARC_POINTS);
 
 function routeData(segments: MapSegment[]) {
   return {
@@ -99,10 +64,8 @@ export function RouteMap({
     const markers: Marker[] = [];
 
     void (async () => {
-      const maplibre = await import("maplibre-gl");
+      const maplibre = await loadMaplibre();
       if (cancelled || !containerRef.current) return;
-      // Served from public/vendor (see scripts/copy-vendor.mjs): the bundled default URL doesn't exist.
-      maplibre.setWorkerUrl(`/vendor/maplibre-gl-worker-${maplibre.getVersion()}.mjs`);
 
       let map: MapLibreMap;
       try {
