@@ -8,7 +8,11 @@ export function CopyBlock({ code, label }: { code: string; label?: string }) {
   return (
     <div className="relative">
       {label && <span className="mb-1 block text-[11px] text-muted-foreground">{label}</span>}
-      <pre className="overflow-x-auto rounded-xl bg-foreground py-2.5 pr-12 pl-3 text-[11px] leading-relaxed text-background">
+      <pre
+        tabIndex={0}
+        aria-label={label ?? "Código"}
+        className="overflow-x-auto rounded-xl bg-foreground py-2.5 pr-12 pl-3 text-[11px] leading-relaxed text-background"
+      >
         <code>{code}</code>
       </pre>
       <button

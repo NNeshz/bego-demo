@@ -97,7 +97,7 @@ export function EmbedPlayground({ origin }: { origin: string }) {
             <span
               className={cn(
                 "ml-3 truncate rounded-md px-3 py-1 text-xs",
-                dark ? "bg-slate-900 text-slate-400" : "bg-slate-100 text-slate-500",
+                dark ? "bg-slate-900 text-slate-300" : "bg-slate-100 text-slate-600",
               )}
             >
               app.tu-empresa.mx/viajes/4821
@@ -321,7 +321,11 @@ export function EmbedPlayground({ origin }: { origin: string }) {
               {copied ? "Copiado" : "Copiar"}
             </button>
           </div>
-          <pre className="max-h-80 overflow-auto rounded-2xl bg-foreground p-4 text-[11.5px] leading-relaxed text-background">
+          <pre
+            tabIndex={0}
+            aria-label={`Código de integración ${tab}`}
+            className="max-h-80 overflow-auto rounded-2xl bg-foreground p-4 text-[11.5px] leading-relaxed text-background"
+          >
             <code>{code}</code>
           </pre>
         </div>

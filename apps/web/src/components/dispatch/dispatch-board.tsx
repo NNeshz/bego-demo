@@ -383,7 +383,7 @@ export function DispatchBoard({
                     <span className="truncate text-xs text-muted-foreground">
                       {statusText(frame, truck.base)}
                     </span>
-                    <span className="truncate text-[11px] text-muted-foreground/80">
+                    <span className="truncate text-[11px] text-muted-foreground">
                       {UNIT_LABELS[truck.unitType]} · base {truck.base.name}
                     </span>
                   </span>
