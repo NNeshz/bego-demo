@@ -1,0 +1,19 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Single source of truth for shared dependency versions.
+# Reference them in package.json as "catalog:".
+catalog:
+  typescript: 5.9.3
+  zod: 4.6.7
+  vitest: 5.1.0
+  fast-check: 4.10.2
+  eslint: 9.39.5
+  "@eslint/js": 9.39.5
+  typescript-eslint: 8.72.2
+  "@types/node": 22.20.5
+
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver

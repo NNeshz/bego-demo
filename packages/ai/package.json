@@ -1,0 +1,22 @@
+{
+  "name": "@retorno/ai",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Claude-powered trip parsing and recommendation explanations, with deterministic fallbacks.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "fast-check": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,21 @@
+node_modules
+.turbo
+.next
+out
+dist
+coverage
+*.tsbuildinfo
+next-env.d.ts
+
+.env*
+!.env.example
+
+.vercel
+.DS_Store
+*.pem
+npm-debug.log*
+.pnpm-debug.log*
+
+# Playwright
+test-results
+playwright-report
