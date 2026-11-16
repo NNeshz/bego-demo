@@ -1,2 +1,2 @@
-// Implemented in Phase 6.
-export {};
+export { RetornoWidget, VERSION } from "./widget";
+export type * from "./types";

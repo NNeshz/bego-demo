@@ -9,6 +9,13 @@ export default defineConfig([
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // Build scripts run in Node.
+    files: ["**/*.mjs"],
+    languageOptions: {
+      globals: { console: "readonly", process: "readonly", URL: "readonly" },
+    },
+  },
+  {
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-unused-vars": [
