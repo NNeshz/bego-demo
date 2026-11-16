@@ -147,7 +147,7 @@ export async function explainRecommendation(
           system: SYSTEM_PROMPT,
           prompt: `Datos:\n${JSON.stringify(facts, null, 2)}`,
           schema: explanationSchema,
-          maxTokens: 200,
+          maxTokens: 400,
           signal,
         }),
       deps.timeoutMs ?? 6_000,

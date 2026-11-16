@@ -8,6 +8,12 @@ export interface GenerateObjectRequest<T> {
   schema: z.ZodType<T>;
   maxTokens: number;
   signal: AbortSignal;
+  /**
+   * Let the model think before answering. Off by default: extraction and
+   * one-sentence copy don't need it, and thinking tokens count toward
+   * `maxTokens` (and latency, and cost).
+   */
+  reasoning?: boolean;
 }
 
 /**
@@ -39,11 +45,15 @@ export function createAnthropicClient({ apiKey, model }: AnthropicClientOptions)
       schema,
       maxTokens,
       signal,
+      reasoning = false,
     }: GenerateObjectRequest<T>) {
       const message = await client.messages.parse(
         {
           model,
           max_tokens: maxTokens,
+          // Models with adaptive thinking may decide to reason on their own when
+          // `thinking` is omitted; be explicit so short tasks stay short.
+          thinking: reasoning ? { type: "adaptive" } : { type: "disabled" },
           system,
           messages: [{ role: "user", content: prompt }],
           output_config: { format: zodOutputFormat(schema) },
@@ -51,7 +61,11 @@ export function createAnthropicClient({ apiKey, model }: AnthropicClientOptions)
         { signal },
       );
       if (message.parsed_output == null) {
-        throw new Error(`No structured output (stop_reason: ${message.stop_reason})`);
+        const { output_tokens, output_tokens_details } = message.usage;
+        throw new Error(
+          `No structured output (stop_reason: ${message.stop_reason}, output_tokens: ${output_tokens}, ` +
+            `thinking_tokens: ${output_tokens_details?.thinking_tokens ?? 0}, max_tokens: ${maxTokens})`,
+        );
       }
       return message.parsed_output as T;
     },

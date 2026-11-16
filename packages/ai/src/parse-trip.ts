@@ -86,7 +86,7 @@ export async function parseTripIntent(
             system: buildSystemPrompt(deps.cities, now),
             prompt: buildUserPrompt(text, previous, context.expecting),
             schema,
-            maxTokens: 300,
+            maxTokens: 600,
             signal,
           }),
         deps.timeoutMs ?? 6_000,
