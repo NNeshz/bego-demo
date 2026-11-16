@@ -1,6 +1,6 @@
 import { resolveOptions, type EngineOptions } from "./config";
 import { rankLoads } from "./recommend";
-import { emptyReturnFrom } from "./score";
+import { emptyReturnFrom, evaluateLoad } from "./score";
 import type { Chain, Load, Recommendation, TruckState } from "./types";
 
 export interface ChainOptions extends EngineOptions {
@@ -56,6 +56,34 @@ export function planChains(
 
   chains.sort((a, b) => b.scorePerHour - a.scorePerHour || chainKey(a).localeCompare(chainKey(b)));
   return chains.slice(0, options.limit ?? 5);
+}
+
+/**
+ * Evaluate one specific chain (e.g. to rebuild it from two load ids in a URL).
+ * Returns null if either leg is infeasible for the truck.
+ */
+export function evaluateChain(
+  truck: TruckState,
+  first: Load,
+  second: Load,
+  options: EngineOptions = {},
+): Chain | null {
+  if (first.id === second.id) return null;
+  const resolved = resolveOptions(options);
+  const firstEval = evaluateLoad(truck, first, resolved);
+  if (!firstEval.ok) return null;
+  const leg1 = firstEval.recommendation;
+  const secondEval = evaluateLoad(
+    { ...truck, position: first.destination, availableAt: leg1.deliveredAt },
+    second,
+    resolved,
+  );
+  if (!secondEval.ok) return null;
+  const emptyNow = emptyReturnFrom(truck.position, truck.base, resolved.costs);
+  return combine(leg1, secondEval.recommendation, emptyNow.costMxn, resolved.weights.home, {
+    deadhead: resolved.weights.deadheadPenaltyMxnPerKm,
+    wait: resolved.weights.waitPenaltyMxnPerHour,
+  });
 }
 
 function chainKey(chain: Chain): string {

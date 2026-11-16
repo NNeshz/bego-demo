@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planChains } from "./chains";
+import { evaluateChain, planChains } from "./chains";
 import { recommend } from "./recommend";
 import { hoursAfter, makeLoad, makeTruck, places, T0 } from "./test/fixtures";
 
@@ -110,5 +110,22 @@ describe("planChains", () => {
   it("is sorted best first", () => {
     const scores = chains.map((c) => c.scorePerHour);
     expect(scores).toEqual([...scores].sort((a, b) => b - a));
+  });
+});
+
+describe("evaluateChain", () => {
+  const truck = makeTruck();
+
+  it("rebuilds exactly the chain planChains found", () => {
+    const [best] = planChains(truck, market);
+    const rebuilt = evaluateChain(truck, best!.legs[0].load, best!.legs[1].load);
+    expect(rebuilt).toEqual(best);
+  });
+
+  it("returns null for infeasible or repeated legs", () => {
+    const [a] = market;
+    expect(evaluateChain(truck, a!, a!)).toBeNull();
+    const farAway = market.find((l) => l.origin.cityId === "hermosillo")!;
+    expect(evaluateChain(truck, farAway, a!)).toBeNull();
   });
 });

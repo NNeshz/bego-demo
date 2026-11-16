@@ -10,5 +10,5 @@ export {
   type Evaluation,
 } from "./score";
 export { recommend, rankLoads, byScoreDesc, type RecommendOptions } from "./recommend";
-export { planChains, type ChainOptions } from "./chains";
+export { planChains, evaluateChain, type ChainOptions } from "./chains";
 export * from "./simulate";
