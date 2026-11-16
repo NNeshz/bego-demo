@@ -12,3 +12,10 @@ export {
 export { recommend, rankLoads, byScoreDesc, type RecommendOptions } from "./recommend";
 export { planChains, evaluateChain, type ChainOptions } from "./chains";
 export * from "./simulate";
+export {
+  choiceFeatures,
+  chainChoiceFeatures,
+  MODEL_FEATURES,
+  type ChoiceFeatures,
+  type ModelFeature,
+} from "./features";
