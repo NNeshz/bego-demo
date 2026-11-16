@@ -1,7 +1,10 @@
 import { neon } from "@neondatabase/serverless";
 import type { Load } from "@retorno/engine";
 import { desc } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/neon-http";
+import { drizzle as drizzleNeonHttp } from "drizzle-orm/neon-http";
+import { drizzle as drizzleNodePg } from "drizzle-orm/node-postgres";
+import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
+import { Pool } from "pg";
 import { toPlace } from "./cities";
 import * as schema from "./schema";
 import {
@@ -14,16 +17,53 @@ import {
 import { seedShiftMs } from "./time";
 import type { City, RecommendationEvent, Truck } from "./types";
 
-export function createDb(databaseUrl: string) {
-  return drizzle({ client: neon(databaseUrl), schema });
+/** Driver-agnostic Drizzle database: the query API is identical for both drivers. */
+export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
+
+export interface DbHandle {
+  db: Db;
+  /**
+   * - `neon-http`: Neon over HTTP. Stateless, ideal for serverless (Vercel). No interactive transactions.
+   * - `node-postgres`: regular TCP connection pool. Used for local Docker Postgres.
+   */
+  driver: "neon-http" | "node-postgres";
+  close(): Promise<void>;
 }
-export type Db = ReturnType<typeof createDb>;
+
+export function isNeonUrl(databaseUrl: string): boolean {
+  return new URL(databaseUrl).hostname.endsWith(".neon.tech");
+}
+
+export function createDb(databaseUrl: string): DbHandle {
+  if (isNeonUrl(databaseUrl)) {
+    return {
+      db: drizzleNeonHttp({ client: neon(databaseUrl), schema }),
+      driver: "neon-http",
+      close: async () => {},
+    };
+  }
+  const pool = new Pool({ connectionString: databaseUrl, max: 5 });
+  return {
+    db: drizzleNodePg({ client: pool, schema }),
+    driver: "node-postgres",
+    close: () => pool.end(),
+  };
+}
 
 /** Postgres returns "2026-01-05 12:00:00+00"; normalize to ISO-8601. */
 const iso = (value: string) => new Date(value).toISOString();
 
-export function createPostgresSource(databaseUrl: string, options: SourceOptions = {}): DataSource {
-  const db = createDb(databaseUrl);
+export type PostgresSource = DataSource & {
+  driver: DbHandle["driver"];
+  /** Release the connection pool (scripts and tests). */
+  close(): Promise<void>;
+};
+
+export function createPostgresSource(
+  databaseUrl: string,
+  options: SourceOptions = {},
+): PostgresSource {
+  const { db, driver, close } = createDb(databaseUrl);
   const now = options.now ?? (() => new Date());
 
   // Cities are static reference data: load once per instance.
@@ -111,6 +151,8 @@ export function createPostgresSource(databaseUrl: string, options: SourceOptions
     },
 
     marketStart: () => marketStartIso(now()),
+    driver,
+    close,
   };
 }
 

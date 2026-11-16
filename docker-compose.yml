@@ -1,0 +1,23 @@
+# Local Postgres for development. Production uses Neon.
+#   pnpm db:up && pnpm db:migrate && pnpm db:seed
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: retorno-postgres
+    environment:
+      POSTGRES_USER: retorno
+      POSTGRES_PASSWORD: retorno
+      POSTGRES_DB: retorno
+    ports:
+      # Non-default host port so it never collides with other local projects.
+      - "54329:5432"
+    volumes:
+      - retorno-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U retorno -d retorno"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  retorno-pgdata:

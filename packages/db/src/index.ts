@@ -14,7 +14,14 @@ export {
   type DataSource,
   type SourceOptions,
 } from "./source";
-export { createPostgresSource, createDb, type Db } from "./postgres";
+export {
+  createPostgresSource,
+  createDb,
+  isNeonUrl,
+  type Db,
+  type DbHandle,
+  type PostgresSource,
+} from "./postgres";
 
 /**
  * Pick the data source for the current environment:
