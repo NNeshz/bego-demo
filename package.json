@@ -21,7 +21,8 @@
     "db:generate": "pnpm --filter @retorno/db db:generate",
     "db:migrate": "pnpm --filter @retorno/db db:migrate",
     "db:seed": "pnpm --filter @retorno/db db:seed",
-    "db:studio": "pnpm --filter @retorno/db db:studio"
+    "db:studio": "pnpm --filter @retorno/db db:studio",
+    "ai:smoke": "pnpm --filter @retorno/ai smoke"
   },
   "devDependencies": {
     "@eslint/js": "catalog:",

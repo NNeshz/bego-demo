@@ -10,13 +10,21 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "smoke": "tsx --env-file-if-exists=../../apps/web/.env.local src/scripts/smoke.ts"
   },
   "devDependencies": {
+    "@retorno/db": "workspace:*",
     "@types/node": "catalog:",
     "eslint": "catalog:",
     "fast-check": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "tsx": "4.23.15"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.8.0",
+    "@retorno/engine": "workspace:*",
+    "zod": "catalog:"
   }
 }
