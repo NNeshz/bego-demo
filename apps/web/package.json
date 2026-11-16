@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --port 3100",
-    "build": "next build",
+    "dev": "pnpm vendor && next dev --port 3100",
+    "build": "pnpm vendor && next build",
     "start": "next start --port 3100",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "vendor": "node scripts/copy-vendor.mjs"
   },
   "dependencies": {
     "@retorno/ai": "workspace:*",
@@ -19,7 +20,10 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
     "lucide-react": "^1.73.0",
+    "maplibre-gl": "6.18.0",
+    "motion": "14.14.0",
     "next": "16.4.6",
+    "next-themes": "0.4.6",
     "radix-ui": "^1.8.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -29,6 +33,7 @@
     "zod-openapi": "6.0.2"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.1",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "catalog:",
     "@types/react": "^19",

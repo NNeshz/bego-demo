@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./cities": "./src/cities.ts",
     "./schema": "./src/schema.ts"
   },
   "scripts": {

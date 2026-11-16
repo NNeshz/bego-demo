@@ -6,6 +6,9 @@ import type { ParseTripContext } from "@retorno/ai";
 import { getCity, type NewRecommendationEvent } from "@retorno/db";
 import {
   compareWeek,
+  emptyReturnFrom,
+  evaluateChain,
+  evaluateLoad,
   planChains,
   recommend,
   resolveOptions,
@@ -148,6 +151,42 @@ export async function getChains(ctx: ServerContext, input: EngineInput & { beamW
     assumptions: assumptions(input),
     generatedAt: ctx.now().toISOString(),
   });
+}
+
+/** One load evaluated for a truck, for the detail screen. Null if the load is gone or no longer feasible. */
+export async function getLoadDetail(ctx: ServerContext, truckInput: TruckInput, loadId: string) {
+  const truck = toTruckState(truckInput, ctx.now());
+  const loads = await ctx.data.listLoads();
+  const load = loads.find((l) => l.id === loadId);
+  if (!load) return null;
+  const options = resolveOptions();
+  const evaluation = evaluateLoad(truck, load, options);
+  if (!evaluation.ok) return null;
+  return {
+    truck,
+    recommendation: evaluation.recommendation,
+    emptyReturn: emptyReturnFrom(truck.position, truck.base, options.costs),
+  };
+}
+
+export async function getChainDetail(
+  ctx: ServerContext,
+  truckInput: TruckInput,
+  firstId: string,
+  secondId: string,
+) {
+  const truck = toTruckState(truckInput, ctx.now());
+  const loads = await ctx.data.listLoads();
+  const first = loads.find((l) => l.id === firstId);
+  const second = loads.find((l) => l.id === secondId);
+  if (!first || !second) return null;
+  const chain = evaluateChain(truck, first, second);
+  if (!chain) return null;
+  return {
+    truck,
+    chain,
+    emptyReturn: emptyReturnFrom(truck.position, truck.base, resolveOptions().costs),
+  };
 }
 
 export async function parseTrip(ctx: ServerContext, text: string, context: ParseTripContext) {
