@@ -11,6 +11,10 @@ export interface FeedbackPayload {
   scorePerHour: number;
   gainVsEmptyMxn: number;
   features: Record<string, number>;
+  /** Joins this feedback to the "shown" events of the screen it came from. */
+  decisionId?: string | undefined;
+  policy: string;
+  source: "app";
 }
 
 /** Fire-and-forget feedback event; `keepalive` lets it finish even if the page navigates away. */
@@ -20,7 +24,10 @@ function sendEvent(action: "accepted" | "rejected", payload: FeedbackPayload) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ action, ...payload }),
     keepalive: true,
-  }).catch(() => {});
+  })
+    // Discard the body: an unread response keeps the request open until garbage collection.
+    .then((response) => response.body?.cancel())
+    .catch(() => {});
 }
 
 export function AcceptActions({

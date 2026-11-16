@@ -212,7 +212,10 @@ export class RetornoWidget extends HTMLElement {
             source: 1, // 1 = embedded widget
           },
         }),
-      }).catch(() => {});
+      })
+        // Discard the body: an unread response keeps the request open until garbage collection.
+        .then((response) => response.body?.cancel())
+        .catch(() => {});
     }
   }
 
