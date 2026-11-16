@@ -89,11 +89,9 @@ export const WeightOverridesSchema = z
 
 export const ExplanationSchema = z
   .object({
-    text: z
-      .string()
-      .meta({
-        example: "Te conviene porque te deja en Querétaro y le ganas $26,750 a regresar vacío.",
-      }),
+    text: z.string().meta({
+      example: "Te conviene porque te deja en Querétaro y le ganas $26,750 a regresar vacío.",
+    }),
     source: z.enum(["ai", "template"]),
   })
   .meta({ id: "Explanation" });
@@ -233,14 +231,9 @@ const TripIntentSchema = z
 
 export const ParseTripRequestSchema = z
   .object({
-    text: z
-      .string()
-      .trim()
-      .min(1)
-      .max(1_000)
-      .meta({
-        example: "Descargo en Laredo mañana a las 10, traigo caja seca de 53, mi base es Querétaro",
-      }),
+    text: z.string().trim().min(1).max(1_000).meta({
+      example: "Descargo en Laredo mañana a las 10, traigo caja seca de 53, mi base es Querétaro",
+    }),
     previous: TripIntentSchema.partial()
       .optional()
       .meta({ description: "Answers gathered so far." }),
