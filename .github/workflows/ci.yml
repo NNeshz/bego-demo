@@ -29,6 +29,9 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.13"
+          # Turborepo filters env vars, so uv inside `pnpm check` never uses setup-uv's
+          # UV_CACHE_DIR and the post-job cache save fails on a missing path.
+          enable-cache: false
 
       - name: Format, lint, typecheck, test, build
         run: pnpm check
