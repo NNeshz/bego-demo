@@ -1,3 +1,4 @@
+import itertools
 from typing import Any
 
 import pytest
@@ -9,7 +10,9 @@ from retorno_ml.train import InsufficientDataError, should_publish, train
 
 
 def simulated_decisions(api: Any, n: int, seed: int = 11) -> list[Decision]:
-    simulate(api, decisions=n, seed=seed)
+    counter = itertools.count()
+    # Deterministic ids: the train/test split hashes them, so random uuids made metrics vary per run.
+    simulate(api, decisions=n, seed=seed, new_id=lambda: f"test-{seed}-{next(counter)}")
     rows = [
         {
             "decision_id": e["decisionId"],

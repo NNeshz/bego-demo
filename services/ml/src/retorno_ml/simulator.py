@@ -13,6 +13,7 @@ The trucker takes whatever has the highest utility.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
@@ -144,7 +145,13 @@ def simulate(
     seed: int = 7,
     explore_share: float = EXPLORE_SHARE,
     now: datetime | None = None,
+    new_id: Callable[[], str] = lambda: str(uuid.uuid4()),
 ) -> SimulationSummary:
+    """
+    `new_id` names each decision. Real runs need globally unique ids (several simulations
+    share one database); tests pass a counter so the train/test split, which hashes the
+    id, is reproducible.
+    """
     rng = np.random.default_rng(seed)
     cities = api.cities()
     now = now or datetime.now(UTC)
@@ -170,7 +177,7 @@ def simulate(
             shown = candidates[:5]
 
         chosen = choose(shown, persona, rng)
-        decision_id = str(uuid.uuid4())
+        decision_id = new_id()
         truck_id = f"sim-{persona.name}-{int(rng.integers(1, 41))}"
         base_event = {
             "decisionId": decision_id,
