@@ -44,9 +44,7 @@ class FitResult:
     converged: bool
 
 
-def fit_logistic(
-    x: FloatArray, y: FloatArray, l2: float = 1.0, max_iter: int = 100, tol: float = 1e-10
-) -> FitResult:
+def fit_logistic(x: FloatArray, y: FloatArray, l2: float = 1.0, max_iter: int = 100, tol: float = 1e-10) -> FitResult:
     """
     Minimize  Σ logloss(y, σ(b + x·w)) + (l2/2)·‖w‖²   (intercept b not penalized).
 
@@ -63,7 +61,14 @@ def fit_logistic(
     penalty = np.full(d + 1, l2)
     penalty[0] = 0.0
 
+    def objective(weights: FloatArray) -> float:
+        logits = design @ weights
+        # log(1 + e^x) computed stably.
+        loss = float(np.sum(np.logaddexp(0.0, logits) - y * logits))
+        return loss + 0.5 * float(np.sum(penalty * weights**2))
+
     w = np.zeros(d + 1)
+    current = objective(w)
     converged = False
     iterations = 0
     while iterations < max_iter:
@@ -73,8 +78,13 @@ def fit_logistic(
         curvature = p * (1.0 - p)
         hessian = design.T @ (design * curvature[:, None]) + np.diag(penalty)
         step = np.linalg.solve(hessian, gradient)
-        w -= step
-        if float(np.max(np.abs(step))) < tol:
+        # Damped Newton: halve the step until the objective decreases (never diverges).
+        t = 1.0
+        while t > 1e-8 and objective(w - t * step) > current:
+            t *= 0.5
+        w = w - t * step
+        current = objective(w)
+        if float(np.max(np.abs(t * step))) < tol:
             converged = True
             break
 
@@ -109,7 +119,8 @@ def coefficients_to_weights(coef: FloatArray) -> tuple[dict[str, float], list[st
 
     Returns the weights (clamped to the API bounds) and the names of clamped ones.
     """
-    by_name = dict(zip(COLUMNS, coef.tolist(), strict=True))
+    # Works for both models: the first four columns are always MODEL_FEATURES.
+    by_name = dict(zip(MODEL_FEATURES, coef[: len(MODEL_FEATURES)].tolist(), strict=True))
     beta_net = by_name["net_per_hour"]
     if beta_net <= 0:
         raise InvalidModelError(f"Money coefficient must be positive, got {beta_net:.4g}")

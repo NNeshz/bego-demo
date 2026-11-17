@@ -101,5 +101,11 @@ export const modelVersions = pgTable("model_versions", {
   coefficients: jsonb("coefficients").$type<Record<string, number>>().notNull(),
   metrics: jsonb("metrics").$type<Record<string, unknown>>().notNull(),
   trainedOn: integer("trained_on").notNull(),
+  /** Personalized weights per trucker id (shrunk toward the global model). */
+  truckWeights: jsonb("truck_weights")
+    .$type<Record<string, Record<string, number>>>()
+    .notNull()
+    .default({}),
+  /** Only models that beat the hand-set weights on held-out decisions are published. */
   active: boolean("active").notNull().default(true),
 });

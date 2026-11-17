@@ -4,8 +4,8 @@ import pytest
 
 from retorno_ml.data import Decision, InMemoryRepository, Option, decisions_from_rows
 from retorno_ml.evaluate import by_shown_order, by_weights, ranking_metrics, split
-from retorno_ml.simulator import PERSONAS_BY_NAME, simulate
-from retorno_ml.train import InsufficientDataError, train
+from retorno_ml.simulator import simulate
+from retorno_ml.train import InsufficientDataError, should_publish, train
 
 
 def simulated_decisions(api: Any, n: int, seed: int = 11) -> list[Decision]:
@@ -37,14 +37,22 @@ def test_split_is_by_decision_and_deterministic(fake_api: Any) -> None:
 
 
 def test_ranking_metrics() -> None:
-    options = (
-        Option("A", 1, {"net_per_hour": 100, "home_per_hour": 0, "deadhead_per_hour": 0, "wait_per_hour": 0}),
-        Option("B", 2, {"net_per_hour": 300, "home_per_hour": 0, "deadhead_per_hour": 0, "wait_per_hour": 0}),
-    )
+    zero = {"home_per_hour": 0.0, "deadhead_per_hour": 0.0, "wait_per_hour": 0.0}
+    options = (Option("A", 1, {"net_per_hour": 100, **zero}), Option("B", 2, {"net_per_hour": 300, **zero}))
     decision = Decision("d1", options, chosen="B")
     assert ranking_metrics([decision], by_shown_order) == {"hit@1": 0.0, "hit@3": 1.0, "mrr": 0.5, "n": 1}
     weights = {"home": 1.0, "deadheadPenaltyMxnPerKm": 0.0, "waitPenaltyMxnPerHour": 0.0}
     assert ranking_metrics([decision], by_weights(weights))["hit@1"] == 1.0
+
+
+def test_publish_gate() -> None:
+    def ranking(learned: float, default: float) -> dict[str, dict[str, float]]:
+        return {"personalized": {"mrr": learned}, "default_weights": {"mrr": default}}
+
+    assert should_publish(ranking(0.92, 0.85))
+    assert not should_publish(ranking(0.85, 0.85))  # a tie isn't worth the risk
+    assert not should_publish(ranking(0.80, 0.85))
+    assert not should_publish(ranking(float("nan"), 0.85))
 
 
 def test_refuses_to_train_on_too_little_data(fake_api: Any) -> None:
@@ -52,27 +60,47 @@ def test_refuses_to_train_on_too_little_data(fake_api: Any) -> None:
         train(InMemoryRepository(simulated_decisions(fake_api, 20)))
 
 
-def test_learned_weights_beat_defaults_and_recover_personas(fake_api: Any) -> None:
-    repo = InMemoryRepository(simulated_decisions(fake_api, 3000))
-    model = train(repo)
+@pytest.fixture(scope="module")
+def trained() -> tuple[Any, InMemoryRepository]:
+    from conftest import FakeEngineApi
+
+    repo = InMemoryRepository(simulated_decisions(FakeEngineApi(), 3000))
+    return train(repo), repo
+
+
+def test_personalized_model_beats_defaults_and_nears_the_ceiling(
+    trained: tuple[Any, InMemoryRepository],
+) -> None:
+    model, repo = trained
     ranking = model.metrics["ranking"]
-
     assert model.metrics["fit"]["converged"]
-    assert model.metrics["fit"]["position_coefficient"] < 0  # learned that lower rank = less likely
-    # Nothing beats knowing the true preferences (small tolerance for sampling noise).
-    assert ranking["learned_weights"]["hit@1"] <= ranking["true_preferences"]["hit@1"] + 0.03
-
-    # Per persona: the defining preference is recovered in the right direction and rough size,
-    # and persona-specific weights rank better than the hand-set defaults.
-    personas = model.metrics["by_persona"]
-    for persona in personas.values():
-        assert persona["ranking"]["persona_learned"]["hit@1"] > persona["ranking"]["default_weights"]["hit@1"]
-    assert personas["espera"]["learned"]["waitPenaltyMxnPerHour"] > 250
-    assert personas["dinero"]["learned"]["waitPenaltyMxnPerHour"] < 150
-    assert personas["casa"]["learned"]["home"] > 1.5
-    assert personas["dinero"]["learned"]["home"] < 1.0
-    assert repo.active_model() is model
+    assert model.metrics["fit"]["position_coefficient"] < 0  # learned that people favor the top
+    assert ranking["personalized"]["hit@1"] > ranking["default_weights"]["hit@1"] + 0.05
+    assert ranking["personalized"]["hit@1"] <= ranking["true_preferences"]["hit@1"] + 0.03
+    assert model.published and repo.active_model() is model
 
 
-def test_true_weights_are_the_ones_the_simulator_uses() -> None:
-    assert PERSONAS_BY_NAME["espera"].weights["waitPenaltyMxnPerHour"] == 500.0
+def test_recovers_each_persona(trained: tuple[Any, InMemoryRepository]) -> None:
+    personas = trained[0].metrics["by_persona"]
+    assert personas["espera"]["learned_median"]["waitPenaltyMxnPerHour"] > 300
+    assert personas["dinero"]["learned_median"]["waitPenaltyMxnPerHour"] < 150
+    assert personas["casa"]["learned_median"]["home"] > 1.5
+    assert personas["dinero"]["learned_median"]["home"] < 1.0
+
+
+def test_serves_personal_weights_and_falls_back_to_global(trained: tuple[Any, InMemoryRepository]) -> None:
+    model, _ = trained
+    truck_id = next(iter(model.truck_weights))
+    assert model.weights_for(truck_id) == (model.truck_weights[truck_id], "trucker")
+    assert model.weights_for("someone-new") == (model.weights, "global")
+    assert model.weights_for(None) == (model.weights, "global")
+
+
+def test_unpublished_models_are_never_served() -> None:
+    from retorno_ml.data import ModelRecord
+
+    repo = InMemoryRepository()
+    good = repo.save_model(ModelRecord(weights={}, coefficients={}, metrics={}, trained_on=1))
+    repo.save_model(ModelRecord(weights={}, coefficients={}, metrics={}, trained_on=2, published=False))
+    assert repo.active_model() is good
+    assert repo.latest_model() is not good

@@ -25,16 +25,19 @@ def _repo() -> PostgresRepository:
 
 
 def _print_report(metrics: dict[str, Any], weights: dict[str, float]) -> None:
-    print("\nWeights:", json.dumps({k: round(v, 2) for k, v in weights.items()}))
+    print("\nGlobal weights:", json.dumps({k: round(v, 2) for k, v in weights.items()}))
+    personalization = metrics.get("personalization", {})
+    print(f"Personalized truckers: {personalization.get('truckers')} (shrinkage {personalization.get('shrinkage')})")
     print("\nRanking on held-out decisions (hit@1 / hit@3 / MRR):")
     for name, m in metrics["ranking"].items():
-        print(f"  {name:<18} {m['hit@1']:.3f} / {m['hit@3']:.3f} / {m['mrr']:.3f}   (n={m['n']})")
+        print(f"  {name:<20} {m['hit@1']:.3f} / {m['hit@3']:.3f} / {m['mrr']:.3f}   (n={m['n']})")
     for name, persona in metrics.get("by_persona", {}).items():
-        if "learned" not in persona:
-            continue
-        learned = {k: round(v, 1) for k, v in persona["learned"].items()}
+        learned = persona.get("learned_median")
+        learned = {k: round(v, 1) for k, v in learned.items()} if learned else None
         hit = {k: round(v["hit@1"], 3) for k, v in persona["ranking"].items()}
-        print(f"\n  [{name}] true={persona['true']}\n           learned={learned}\n           hit@1={hit}")
+        print(f"\n  [{name}] true={persona['true']}\n           learned (median)={learned}\n           hit@1={hit}")
+    publish = metrics.get("publish", {})
+    print(f"\nPublished: {publish.get('published')} ({publish.get('rule')})")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -46,7 +49,6 @@ def main(argv: list[str] | None = None) -> None:
     sim.add_argument("--api", default=None, help="Engine API base URL (default: RETORNO_API_URL or :3100)")
     tr = sub.add_parser("train", help="Fit and evaluate a model from logged decisions")
     tr.add_argument("--source", action="append", help="Only use events from this source (repeatable)")
-    tr.add_argument("--l2", type=float, default=1.0)
     sub.add_parser("report", help="Show the active model")
     args = parser.parse_args(argv)
 
@@ -60,18 +62,17 @@ def main(argv: list[str] | None = None) -> None:
         print(json.dumps(summary.__dict__, indent=2))
     elif args.command == "train":
         try:
-            model = train(_repo(), sources=args.source, l2=args.l2)
+            model = train(_repo(), sources=args.source)
         except InsufficientDataError as error:
             sys.exit(str(error))
-        print(f"Saved model v{model.id} (trained on {model.trained_on} decisions)")
+        status = "published" if model.published else "NOT published (did not beat the hand-set weights)"
+        print(f"Saved model v{model.id} (trained on {model.trained_on} decisions) · {status}")
         _print_report(model.metrics, model.weights)
     elif args.command == "report":
         model = _repo().active_model()
         if model is None:
             sys.exit("No model trained yet. Run: retorno-ml train")
-        print(
-            f"Model v{model.id} · {model.created_at:%Y-%m-%d %H:%M} · trained on {model.trained_on} decisions"
-        )
+        print(f"Model v{model.id} · {model.created_at:%Y-%m-%d %H:%M} · trained on {model.trained_on} decisions")
         _print_report(model.metrics, model.weights)
 
 

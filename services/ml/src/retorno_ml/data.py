@@ -38,17 +38,33 @@ class Decision:
 @dataclass
 class ModelRecord:
     weights: dict[str, float]
+    """Global weights: used for truckers without enough history."""
     coefficients: dict[str, float]
     metrics: dict[str, Any]
     trained_on: int
+    truck_weights: dict[str, dict[str, float]] = field(default_factory=lambda: dict[str, dict[str, float]]())
+    published: bool = True
+    """False when the model didn't beat the hand-set weights on held-out data: kept for the record, never served."""
     id: int | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    def weights_for(self, truck_id: str | None) -> tuple[dict[str, float], str]:
+        """Personal weights if we have them for this trucker, otherwise the global ones."""
+        if truck_id and truck_id in self.truck_weights:
+            return self.truck_weights[truck_id], "trucker"
+        return self.weights, "global"
 
 
 class Repository(Protocol):
     def load_decisions(self, sources: list[str] | None = None) -> list[Decision]: ...
     def save_model(self, record: ModelRecord) -> ModelRecord: ...
-    def active_model(self) -> ModelRecord | None: ...
+    def active_model(self) -> ModelRecord | None:
+        """Latest PUBLISHED model (the one to serve)."""
+        ...
+
+    def latest_model(self) -> ModelRecord | None:
+        """Latest trained model, published or not (for reports)."""
+        ...
 
 
 def decisions_from_rows(rows: list[dict[str, Any]]) -> list[Decision]:
@@ -110,4 +126,8 @@ class InMemoryRepository:
         return record
 
     def active_model(self) -> ModelRecord | None:
+        published = [m for m in self.models if m.published]
+        return published[-1] if published else None
+
+    def latest_model(self) -> ModelRecord | None:
         return self.models[-1] if self.models else None

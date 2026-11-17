@@ -15,6 +15,13 @@
       "when": 1794871892700,
       "tag": "0001_ranking_feedback",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794884860698,
+      "tag": "0002_truck_weights",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any, LiteralString, cast
 
 import psycopg
 from psycopg.rows import DictRow, dict_row
@@ -19,9 +19,7 @@ class PostgresRepository:
         # psycopg's connect() overloads don't narrow row_factory for pyright; the cast states the
         # (correct) runtime type once, so every query below is typed as dict rows.
         connect = cast(Any, psycopg.Connection.connect)
-        return cast(
-            psycopg.Connection[DictRow], connect(self.database_url, row_factory=dict_row, connect_timeout=5)
-        )
+        return cast(psycopg.Connection[DictRow], connect(self.database_url, row_factory=dict_row, connect_timeout=5))
 
     def load_decisions(self, sources: list[str] | None = None) -> list[Decision]:
         query = """
@@ -39,11 +37,18 @@ class PostgresRepository:
         with self._connect() as conn:
             row = conn.execute(
                 """
-                insert into model_versions (weights, coefficients, metrics, trained_on, active)
-                values (%s, %s, %s, %s, true)
+                insert into model_versions (weights, coefficients, metrics, trained_on, truck_weights, active)
+                values (%s, %s, %s, %s, %s, %s)
                 returning id, created_at
                 """,
-                (Jsonb(record.weights), Jsonb(record.coefficients), Jsonb(record.metrics), record.trained_on),
+                (
+                    Jsonb(record.weights),
+                    Jsonb(record.coefficients),
+                    Jsonb(record.metrics),
+                    record.trained_on,
+                    Jsonb(record.truck_weights),
+                    record.published,
+                ),
             ).fetchone()
         assert row is not None
         record.id = cast(int, row["id"])
@@ -51,13 +56,21 @@ class PostgresRepository:
         return record
 
     def active_model(self) -> ModelRecord | None:
+        return self._one(
+            "select id, created_at, weights, coefficients, metrics, trained_on, truck_weights, active "
+            "from model_versions where active order by id desc limit 1"
+        )
+
+    def latest_model(self) -> ModelRecord | None:
+        return self._one(
+            "select id, created_at, weights, coefficients, metrics, trained_on, truck_weights, active "
+            "from model_versions order by id desc limit 1"
+        )
+
+    def _one(self, query: LiteralString) -> ModelRecord | None:
+        # LiteralString: psycopg only accepts constant SQL, which rules out injection by construction.
         with self._connect() as conn:
-            row = conn.execute(
-                """
-                select id, created_at, weights, coefficients, metrics, trained_on
-                from model_versions where active order by id desc limit 1
-                """
-            ).fetchone()
+            row = conn.execute(query).fetchone()
         if row is None:
             return None
         return ModelRecord(
@@ -67,4 +80,6 @@ class PostgresRepository:
             coefficients=row["coefficients"],
             metrics=row["metrics"],
             trained_on=row["trained_on"],
+            truck_weights=row["truck_weights"],
+            published=row["active"],
         )

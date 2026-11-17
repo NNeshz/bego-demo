@@ -1,0 +1,1 @@
+ALTER TABLE "model_versions" ADD COLUMN "truck_weights" jsonb DEFAULT '{}'::jsonb NOT NULL;

@@ -59,9 +59,7 @@ def test_coefficients_become_weights_in_mxn() -> None:
     # β = [net, home, deadhead, wait, rank]
     coef = np.array([0.02, 0.05, -0.1, -6.0, -0.3])
     weights, clamped = coefficients_to_weights(coef)
-    assert weights == pytest.approx(
-        {"home": 2.5, "deadheadPenaltyMxnPerKm": 5.0, "waitPenaltyMxnPerHour": 300.0}
-    )
+    assert weights == pytest.approx({"home": 2.5, "deadheadPenaltyMxnPerKm": 5.0, "waitPenaltyMxnPerHour": 300.0})
     assert clamped == []
 
 
