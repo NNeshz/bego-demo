@@ -1,16 +1,20 @@
 import { cn } from "@/lib/utils";
 
-/** Own mark: a U-turn ("go out, come back loaded"). Deliberately unlike BeGo's hexagon. */
+/**
+ * Own mark: a U-turn ("go out, come back loaded"). Deliberately unlike BeGo's hexagon.
+ * Light: yellow glyph on a dark tile. Dark: inverted (dark glyph on a yellow tile); a yellow
+ * glyph on the light foreground tile would barely be visible.
+ */
 export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" aria-hidden className={cn("size-8", className)}>
-      <rect width="32" height="32" rx="9" className="fill-foreground" />
+      <rect width="32" height="32" rx="9" className="fill-foreground dark:fill-brand" />
       <path
         d="M10 24V14.5a6 6 0 0 1 12 0V20"
         fill="none"
         strokeWidth="3"
         strokeLinecap="round"
-        className="stroke-brand"
+        className="stroke-brand dark:stroke-brand-foreground"
       />
       <path
         d="M18 18.5l4 4 4-4"
@@ -18,7 +22,7 @@ export function LogoMark({ className }: { className?: string }) {
         strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="stroke-brand"
+        className="stroke-brand dark:stroke-brand-foreground"
       />
     </svg>
   );
