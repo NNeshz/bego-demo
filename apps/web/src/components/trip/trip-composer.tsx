@@ -4,6 +4,7 @@ import { CITIES } from "@retorno/db/cities";
 import { UNIT_LABELS, UNIT_TYPES, type UnitType } from "@retorno/engine";
 import {
   ArrowRight,
+  ChevronRight,
   Clock,
   Home,
   Loader2,
@@ -33,6 +34,23 @@ const EXAMPLES = [
   "Ando en Manzanillo con refri, quedo libre hoy en la tarde, soy de Guadalajara",
   "Entrego en CDMX el jueves a las 8, traigo full, regreso a Monterrey",
 ];
+
+const FIELD_NAMES: Record<Field, string> = {
+  unloadCityId: "dónde descargas",
+  unloadAt: "cuándo quedas libre",
+  unitType: "tu unidad",
+  baseCityId: "tu base",
+};
+
+function missingHint(intent: Intent): string {
+  const missing = FIELDS.filter((field) => intent[field] === null);
+  if (missing.length === 0) return "";
+  if (missing.length === FIELDS.length)
+    return "Cuéntanos tu viaje arriba o elige los datos a mano.";
+  const names = missing.map((field) => FIELD_NAMES[field]);
+  const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} y ${names.at(-1)}` : names[0];
+  return `Falta ${list}.`;
+}
 
 const cityName = (id: string | null) => CITIES.find((c) => c.id === id)?.name ?? null;
 const sortedCities = [...CITIES].sort((a, b) => a.name.localeCompare(b.name, "es"));
@@ -154,7 +172,8 @@ export function TripComposer() {
         <label htmlFor="trip-text" className="sr-only">
           Cuéntanos tu viaje
         </label>
-        <div className="relative">
+        {/* One box like a chat input: text on top, actions (send, voice) in a row below it. */}
+        <div className="rounded-2xl border bg-background/70 transition focus-within:ring-3 focus-within:ring-ring/50">
           <textarea
             id="trip-text"
             ref={textareaRef}
@@ -172,28 +191,62 @@ export function TripComposer() {
                 ? "Escribe o dicta tu respuesta…"
                 : "¿Dónde y cuándo descargas? ¿Qué traes?"
             }
-            className="w-full resize-none rounded-2xl border bg-background/70 px-4 py-3.5 pr-16 text-base leading-relaxed outline-none placeholder:text-muted-foreground/80 focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="block w-full resize-none rounded-t-2xl bg-transparent px-4 pt-3.5 pb-1 text-base leading-relaxed outline-none placeholder:text-muted-foreground/80"
           />
-          {voice.supported && (
-            <button
-              type="button"
-              onClick={voice.listening ? voice.stop : voice.start}
-              aria-label={voice.listening ? "Dejar de dictar" : "Dictar con voz"}
-              aria-pressed={voice.listening}
-              className={cn(
-                "absolute right-2.5 bottom-3 grid size-11 place-items-center rounded-full transition",
-                voice.listening
-                  ? "bg-foreground text-background"
-                  : "bg-brand text-brand-foreground hover:scale-105",
-              )}
-            >
-              {voice.listening ? (
-                <Square className="size-3.5 fill-current" />
+          <div className="flex items-center justify-between gap-2 px-2.5 pb-2.5">
+            <span className="pl-1.5 text-xs text-muted-foreground">
+              {source ? (
+                <span className="inline-flex items-center gap-1">
+                  <Sparkles className="size-3" />
+                  {source === "rules" ? "Leído sin IA" : "Leído con IA"}
+                </span>
               ) : (
-                <Mic className="size-5" />
+                <span className="hidden sm:inline">Enter para enviar</span>
               )}
-            </button>
-          )}
+            </span>
+            <div className="flex items-center gap-2">
+              <AnimatePresence initial={false}>
+                {(text.trim() || status === "parsing") && (
+                  <motion.button
+                    key="send"
+                    type="submit"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    disabled={status === "parsing"}
+                    className="inline-flex h-11 items-center gap-1.5 rounded-full bg-foreground px-4 text-sm font-medium text-background transition hover:bg-foreground/85 disabled:opacity-70"
+                  >
+                    {status === "parsing" ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <ArrowRight className="size-4" />
+                    )}
+                    {status === "parsing" ? "Leyendo…" : activeQuestion ? "Responder" : "Analizar"}
+                  </motion.button>
+                )}
+              </AnimatePresence>
+              {voice.supported && (
+                <button
+                  type="button"
+                  onClick={voice.listening ? voice.stop : voice.start}
+                  aria-label={voice.listening ? "Dejar de dictar" : "Dictar con voz"}
+                  aria-pressed={voice.listening}
+                  className={cn(
+                    "grid size-11 place-items-center rounded-full transition",
+                    voice.listening
+                      ? "bg-foreground text-background"
+                      : "bg-brand text-brand-foreground hover:scale-105",
+                  )}
+                >
+                  {voice.listening ? (
+                    <Square className="size-3.5 fill-current" />
+                  ) : (
+                    <Mic className="size-5" />
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         <AnimatePresence>
@@ -228,34 +281,17 @@ export function TripComposer() {
             No pudimos leer tu mensaje. Revisa tu señal o llena los datos abajo.
           </p>
         )}
-
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-muted-foreground">
-            {source && (
-              <span className="inline-flex items-center gap-1">
-                <Sparkles className="size-3" />
-                {source === "rules" ? "Leído sin IA" : "Leído con IA"}
-              </span>
-            )}
-          </span>
-          <Button
-            type="submit"
-            variant="outline"
-            size="md"
-            disabled={!text.trim() || status === "parsing"}
-          >
-            {status === "parsing" ? <Loader2 className="animate-spin" /> : null}
-            {status === "parsing" ? "Leyendo…" : activeQuestion ? "Responder" : "Analizar"}
-            {status !== "parsing" && <ArrowRight />}
-          </Button>
-        </div>
       </form>
 
       {!source && !initialTrip && (
         <div className="-mx-5 -mt-1 flex flex-col gap-2 sm:-mx-6">
           <span className="eyebrow px-5 sm:px-6">Prueba con</span>
-          {/* Horizontal, swipeable: keeps the main action above the fold on a phone. */}
-          <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:px-6">
+          {/*
+            Phone: horizontal and swipeable, so the main action stays above the fold. scroll-padding
+            matches the card padding: without it, snapping pulls the first card to the card's edge.
+            The right edge fades to hint there is more. Wide screens: all examples, stacked.
+          */}
+          <div className="flex snap-x snap-mandatory scroll-px-5 gap-2 overflow-x-auto px-5 pb-1 [mask-image:linear-gradient(to_right,black_88%,transparent)] [scrollbar-width:none] sm:scroll-px-6 sm:px-6 lg:flex-col lg:overflow-visible lg:[mask-image:none]">
             {EXAMPLES.map((example) => (
               <button
                 key={example}
@@ -264,7 +300,7 @@ export function TripComposer() {
                   setText(example);
                   void analyze(example);
                 }}
-                className="w-60 shrink-0 snap-start rounded-2xl border border-dashed px-3.5 py-2.5 text-left text-sm leading-snug text-muted-foreground transition hover:border-solid hover:bg-accent hover:text-foreground"
+                className="w-64 shrink-0 snap-start rounded-2xl border border-dashed px-3.5 py-2.5 text-left text-sm leading-snug text-muted-foreground transition last:mr-5 hover:border-solid hover:bg-accent hover:text-foreground sm:last:mr-6 lg:w-full lg:last:mr-0"
               >
                 “{example}”
               </button>
@@ -364,9 +400,15 @@ export function TripComposer() {
         </FieldRow>
       </div>
 
-      <Button variant="brand" size="lg" disabled={!complete} onClick={submit} className="w-full">
-        Ver cargas de regreso <ArrowRight />
-      </Button>
+      <div className="flex flex-col gap-2">
+        <Button variant="brand" size="lg" disabled={!complete} onClick={submit} className="w-full">
+          Ver cargas de regreso <ArrowRight />
+        </Button>
+        {/* Say what's missing instead of leaving a mute disabled button. */}
+        <p aria-live="polite" className="min-h-4 text-center text-xs text-muted-foreground">
+          {missingHint(intent)}
+        </p>
+      </div>
     </div>
   );
 }
@@ -394,23 +436,38 @@ function FieldRow(props: {
           {props.icon}
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-xs text-muted-foreground">{props.label}</span>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.span
-              key={`${props.value}-${props.revealKey}`}
-              initial={{ opacity: 0, x: -8, filter: "blur(4px)" }}
-              animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
-              exit={{ opacity: 0 }}
-              // Fields "type themselves in" one after another after each parse.
-              transition={{ delay: props.index * 0.12, duration: 0.3 }}
-              className={cn("truncate font-medium", !props.value && "text-muted-foreground")}
-            >
-              {props.value ?? "Toca para elegir"}
-            </motion.span>
-          </AnimatePresence>
+          {props.value ? (
+            <>
+              <span className="text-xs text-muted-foreground">{props.label}</span>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={`${props.value}-${props.revealKey}`}
+                  initial={{ opacity: 0, x: -8, filter: "blur(4px)" }}
+                  animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0 }}
+                  // Fields "type themselves in" one after another after each parse.
+                  transition={{ delay: props.index * 0.12, duration: 0.3 }}
+                  className="truncate font-medium"
+                >
+                  {props.value}
+                </motion.span>
+              </AnimatePresence>
+            </>
+          ) : (
+            // Empty: just the question, one line. No repeated placeholder noise.
+            <span className="text-[0.95rem] text-foreground/80">{props.label}</span>
+          )}
         </span>
-        <span className="text-xs text-muted-foreground underline-offset-4 hover:underline">
-          {props.editing ? "Listo" : "Cambiar"}
+        <span
+          className={cn(
+            "inline-flex items-center gap-0.5 text-xs",
+            props.value || props.editing
+              ? "text-muted-foreground"
+              : "font-medium text-foreground/80",
+          )}
+        >
+          {props.editing ? "Listo" : props.value ? "Cambiar" : "Elegir"}
+          {!props.editing && !props.value && <ChevronRight className="size-3.5" />}
         </span>
       </button>
       <AnimatePresence initial={false}>
