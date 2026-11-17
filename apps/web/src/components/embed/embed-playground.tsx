@@ -286,7 +286,8 @@ export function EmbedPlayground({ origin }: { origin: string }) {
         </div>
 
         <div className="glass flex flex-col gap-3 p-4">
-          <div className="flex items-center justify-between gap-2">
+          {/* Wraps on the narrowest phones (320 px) instead of pushing "Copiar" off screen. */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div
               role="tablist"
               aria-label="Framework"
