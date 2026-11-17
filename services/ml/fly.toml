@@ -1,0 +1,32 @@
+# Fly.io config for the Retorno ML service.
+#   fly launch --no-deploy --copy-config   (first time: pick a unique app name)
+#   fly secrets set DATABASE_URL=... ML_ADMIN_TOKEN=...
+#   fly deploy
+app = "bego-retorno-ml"
+primary_region = "iad" # Ashburn, Virginia: next to Vercel's default region; Neon (us-east-2) is close
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Suspend instead of stop: memory is snapshotted and resumes in well under a second,
+  # so the first visitor after a quiet period doesn't wait for a cold start.
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "15s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
