@@ -1,14 +1,19 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
+import { MotionConfig } from "motion/react";
 import { ThemeProvider as NextThemes, useTheme } from "next-themes";
 import type { ReactNode } from "react";
 
-/** System preference by default; truckers driving at night get dark mode automatically. */
+/**
+ * System preference by default; truckers driving at night get dark mode automatically.
+ * Motion animations follow the OS "reduce motion" setting too (the CSS rule in globals.css
+ * only covers CSS animations, not JS-driven ones).
+ */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   return (
     <NextThemes attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-      {children}
+      <MotionConfig reducedMotion="user">{children}</MotionConfig>
     </NextThemes>
   );
 }

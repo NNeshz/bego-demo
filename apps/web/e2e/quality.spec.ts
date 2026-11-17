@@ -55,7 +55,9 @@ for (const [name, path] of PAGES()) {
 
     for (const colorScheme of ["light", "dark"] as const) {
       test(`has no serious accessibility violations (${colorScheme})`, async ({ page }) => {
-        await page.emulateMedia({ colorScheme });
+        // Reduced motion: axe must measure elements at rest, not mid fade-in (half-opaque text
+        // fails contrast). The app honors this setting for real users too.
+        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
         await page.goto(path);
         await page.waitForLoadState("networkidle");
         const results = await new AxeBuilder({ page })

@@ -24,7 +24,12 @@ export const test = base.extend<{ pageErrors: string[] }>({
   pageErrors: [
     async ({ page }, use) => {
       const errors: string[] = [];
-      page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
+      page.on("pageerror", (error) => {
+        // WebKit reports a fetch cancelled by navigation (Next prefetching a route's RSC payload
+        // while the test moves on) as an "access control" error. Nothing failed for the user.
+        if (/_rsc=.* due to access control checks/.test(error.message)) return;
+        errors.push(`pageerror: ${error.message}`);
+      });
       page.on("console", (message) => {
         if (message.type() !== "error") return;
         const text = message.text();

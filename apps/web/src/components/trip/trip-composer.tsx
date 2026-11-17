@@ -183,7 +183,9 @@ export function TripComposer() {
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
-                void analyze(text);
+                // Read the box itself, not `text`: state can lag one render behind a fast
+                // Enter (or a dictation keyboard), which would send an empty message.
+                void analyze(event.currentTarget.value);
               }
             }}
             placeholder={
