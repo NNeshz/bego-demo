@@ -27,7 +27,10 @@ export interface ServerContext {
   weights: WeightsProvider;
 }
 
-const store = globalThis as typeof globalThis & { __retornoContext?: ServerContext };
+const store = globalThis as typeof globalThis & {
+  __retornoContext?: ServerContext;
+  __retornoContextShape?: string;
+};
 
 function createContext(): ServerContext {
   const now = () => new Date();
@@ -60,11 +63,20 @@ function createContext(): ServerContext {
 }
 
 export function getContext(): ServerContext {
-  store.__retornoContext ??= createContext();
+  // In dev, hot reload re-evaluates this module but globalThis survives: a context built by an
+  // older createContext() can lack newly added dependencies. Rebuild when its source changes.
+  const shape = process.env.NODE_ENV === "production" ? "" : createContext.toString();
+  if (!store.__retornoContext || store.__retornoContextShape !== shape) {
+    store.__retornoContext = createContext();
+    store.__retornoContextShape = shape;
+  }
   return store.__retornoContext;
 }
 
 /** Tests inject deterministic dependencies (fixed clock, fake LLM, memory data). */
 export function setContextForTests(context: ServerContext | undefined): void {
   store.__retornoContext = context;
+  // Pin the injected context: getContext() must not replace it.
+  store.__retornoContextShape =
+    process.env.NODE_ENV === "production" ? "" : createContext.toString();
 }
