@@ -225,7 +225,7 @@ export function DispatchBoard({
         </Kpi>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
         {/* Map + playback */}
         <section className="flex flex-col gap-3">
           <div className="relative">

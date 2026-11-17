@@ -53,7 +53,7 @@ jobs:
 
       - name: Install Playwright browser
         working-directory: apps/web
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium webkit
 
       # Deterministic mode: no database, no AI key (see apps/web/playwright.config.ts).
       - name: E2E (mobile 375px + desktop, a11y, overflow)

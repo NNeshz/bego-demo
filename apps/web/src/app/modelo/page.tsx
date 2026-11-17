@@ -124,7 +124,7 @@ function ModelReport({ model }: { model: ModelSummary }) {
 
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat
           label="Modelo"
           value={`v${model.version}`}
@@ -195,7 +195,7 @@ function ModelReport({ model }: { model: ModelSummary }) {
             decisiones por transportista, eso es el encogimiento haciendo su trabajo: no
             sobreajustar con poca historia.
           </p>
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {Object.entries(metrics.by_persona).map(([persona, data]) => (
               <div
                 key={persona}
@@ -236,7 +236,7 @@ function ModelReport({ model }: { model: ModelSummary }) {
         </Card>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card title="Cómo funciona">
           <ul className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
             <li>

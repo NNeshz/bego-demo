@@ -39,6 +39,13 @@ export default defineConfig({
       name: "desktop",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
+    // Safari's engine (every iOS browser, Brave and Chrome included, uses it). Layout differs
+    // from Chrome in places: a grid bug that clipped the home page only showed up here.
+    {
+      name: "iphone",
+      use: { ...devices["iPhone 13"] },
+      testMatch: /(quality|trucker)\.spec\.ts/,
+    },
   ],
   webServer: {
     command: `pnpm build && pnpm exec next start --port ${PORT}`,

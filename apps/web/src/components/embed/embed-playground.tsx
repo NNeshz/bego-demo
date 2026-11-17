@@ -103,7 +103,7 @@ export function EmbedPlayground({ origin }: { origin: string }) {
               app.tu-empresa.mx/viajes/4821
             </span>
           </div>
-          <div className="grid md:grid-cols-[180px_1fr]">
+          <div className="grid grid-cols-1 md:grid-cols-[180px_1fr]">
             <nav
               className={cn(
                 "hidden flex-col gap-1 border-r p-3 text-sm md:flex",

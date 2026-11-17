@@ -50,7 +50,7 @@ function BoardSkeleton() {
           <div key={i} className="glass h-24 animate-pulse" />
         ))}
       </div>
-      <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_380px]">
         <div className="h-[34rem] animate-pulse rounded-3xl bg-muted" />
         <div className="glass h-[34rem] animate-pulse" />
       </div>

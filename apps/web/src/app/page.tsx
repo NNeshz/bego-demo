@@ -10,9 +10,13 @@ export default function HomePage() {
     <div className="relative flex min-h-[calc(100dvh-28px)] flex-1 flex-col overflow-hidden">
       <Terrain className="h-[46vh] min-h-72" />
       <AppHeader />
-      {/* Phone: one column, the form right after the pitch. Wide: pitch + real example | form. */}
-      <main className="relative z-10 mx-auto grid w-full max-w-md flex-1 content-start gap-7 px-5 pt-8 pb-10 lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_minmax(0,27rem)] lg:gap-x-12 lg:pt-14">
-        <div className="flex flex-col gap-7">
+      {/*
+        Phone: one column, the form right after the pitch. Wide: pitch + real example | form.
+        grid-cols-1 (= minmax(0, 1fr)) is required: with an implicit "auto" column, Safari grows
+        the column to the min-content of the swipeable examples (~850px) and clips the page.
+      */}
+      <main className="relative z-10 mx-auto grid w-full max-w-md flex-1 grid-cols-1 content-start gap-7 px-5 pt-8 pb-10 lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_minmax(0,27rem)] lg:gap-x-12 lg:pt-14">
+        <div className="flex min-w-0 flex-col gap-7">
           <section className="flex flex-col gap-3">
             <span className="eyebrow">Copiloto de regreso</span>
             <h1 className="text-[2.6rem] leading-[1.05] font-light tracking-tight lg:text-[3.6rem]">
