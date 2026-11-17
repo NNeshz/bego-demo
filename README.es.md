@@ -28,6 +28,7 @@ dos formas de conectar el motor a un producto existente (un widget embebible y u
 | **Widget embebible**                     | `/embed` · `/widget.js`          | `<retorno-widget>`, un web component de 5 KB (gzip) que funciona en HTML, React o Angular                                                                      |
 | **Agente de IA + servidor MCP**          | `/agent` · `/api/mcp`            | El motor como herramientas para un asistente de IA: un chat dentro de la app más un endpoint MCP estándar que cualquier agente puede usar                      |
 | **API pública**                          | `/api/v1/*` · `/docs`            | API REST versionada con especificación OpenAPI 3.1, generada desde los mismos esquemas Zod que validan las peticiones                                          |
+| **Pesos aprendidos (ML)**                | `/modelo` · `services/ml`        | Un servicio en Python aprende los pesos de cada transportista con lo que acepta y rechaza; "Ordenar para…" en `/cargas` reordena por transportista             |
 
 Semana simulada en el mercado sintético (25 camiones, 320 cargas, 7 días): los km en vacío bajan de **34.4% a 22.1%**
 y la ganancia neta de la flota sube **+$668,543 MXN** (de 90 a 121 cargas entregadas). Esto ilustra el método, no son
@@ -58,8 +59,8 @@ score por hora = (ganancia neta + bono de base − penalización por vacío − 
 bono de base   = w_base × (costo de regresar vacío ahora − costo de regresar vacío después de entregar)
 ```
 
-Los pesos (`w_base` y las dos penalizaciones) son lo que aprendería un modelo con retroalimentación. Cada aceptar o
-rechazar ya queda registrado con sus características en `recommendation_events`.
+Los pesos (`w_base` y las dos penalizaciones) los aprende `services/ml` a partir de la retroalimentación (ver abajo).
+Sin ese servicio, el motor usa valores fijos.
 
 **Filtros duros** (una carga que falla cualquiera nunca se muestra):
 
@@ -216,16 +217,67 @@ La API incluye:
 - un límite por cliente en las peticiones que usan IA;
 - un límite de 64 KB por petición.
 
+## Aprender los pesos (`services/ml`)
+
+Cada pantalla de resultados se registra como una **decisión**: las opciones que se mostraron (con sus características
+y su posición) y lo que hizo el transportista (aceptó una o ninguna). Un servicio en Python aprende los pesos del orden
+con esas decisiones.
+
+- **Características elegidas para que el modelo regrese al motor.** Por hora: ganancia neta, bono de base, km en vacío
+  y horas de espera. El score del motor es lineal en ellas, así que cada coeficiente dividido entre el del dinero es un
+  peso en pesos mexicanos ("una hora de espera le cuesta $X a este transportista").
+- **Logit condicional** sobre cada pantalla más la alternativa "regresar vacío", ajustado con Newton amortiguado en
+  numpy. Las opciones compiten dentro de su pantalla, que es como decide un transportista de verdad. Con una sola
+  opción por pantalla equivale a una regresión logística binaria; un test compara ese caso contra scikit-learn. Un
+  término de posición absorbe el sesgo hacia lo que se muestra primero.
+- **Pesos por transportista con encogimiento.** El modelo de cada transportista se ajusta con una penalización L2 hacia
+  el modelo global (Bayes empírico): con poca historia se queda cerca de los pesos de todos; con más historia se mueve
+  hacia los suyos. La fuerza se elige con un conjunto de validación, nunca con el de prueba.
+- **Candado de publicación.** Un modelo solo se sirve si ordena mejor que los pesos fijos en decisiones que no vio. Si
+  no, se guarda como registro y la app sigue con el anterior.
+- **Nunca rompe la app.** La app web le pide los pesos al servicio con un límite de 800 ms, los guarda en caché y espera
+  antes de reintentar si falla; ante cualquier problema usa los pesos fijos. Cada respuesta dice con qué pesos se ordenó
+  (`weightsSource`).
+
+No hay transportistas reales, así que los datos son **simulados**: 120 transportistas sintéticos de tres tipos (quiere
+volver a su base, no soporta esperar, solo ve la ganancia) con pesos ocultos, decidiendo sobre resultados reales del
+motor. Así se puede medir si el modelo recupera lo que no ve. Con 3,000 decisiones (evaluado en decisiones no vistas;
+top 1 = la carga elegida quedó en primer lugar):
+
+| Orden                                          |     Top 1 |     Top 3 |
+| ---------------------------------------------- | --------: | --------: |
+| Orden en que se mostraron (sesgo de posición)  |     38.2% |     76.7% |
+| Pesos fijos del motor                          |     73.7% |     96.5% |
+| Regresión logística punto por punto (base)     |     72.5% |     95.0% |
+| Logit condicional global                       |     74.3% |     95.9% |
+| **Personalizado por transportista (se sirve)** | **85.7%** | **98.3%** |
+| Preferencias ocultas verdaderas (techo)        |     86.9% |     98.8% |
+
+Advertencias: son datos simulados; muestran que el método funciona, no cómo se comportan transportistas reales. Con ~19
+decisiones por transportista, los pesos individuales tienen ruido; las medianas por tipo recuperan bien la preferencia
+que define a cada tipo, y las secundarias quedan más cerca del promedio (eso es el encogimiento haciendo su trabajo).
+
+```bash
+pnpm --filter @retorno/ml dev                          # FastAPI en :8100
+pnpm --filter @retorno/ml simulate -- --decisions 3000 # transportistas sintéticos deciden usando la API pública
+pnpm --filter @retorno/ml train                        # ajusta, evalúa y publica si le gana a los pesos fijos
+```
+
+También se puede reentrenar desde `/modelo` con el token de admin (`ML_ADMIN_TOKEN`, que solo lee el servicio de ML; la
+app web únicamente reenvía lo que escribes).
+
 ## Calidad
 
-- **162 tests unitarios y de integración** (Vitest):
+- **176 tests unitarios y de integración** (Vitest) y **36 tests de Python** (pytest, pyright estricto, ruff):
   - el motor, incluidos tests basados en propiedades con fast-check;
   - la IA con un cliente falso;
   - que Postgres y la memoria devuelvan lo mismo;
   - tests de contrato de la API contra los esquemas publicados;
   - el protocolo MCP con el cliente oficial del SDK;
-  - el widget en un DOM simulado.
-- **64 tests E2E** (Playwright) contra un build de producción:
+  - el widget en un DOM simulado;
+  - el modelo de ML: recuperación de parámetros, igualdad con scikit-learn, encogimiento, candado de publicación y la
+    API HTTP.
+- **72 tests E2E** (Playwright) contra un build de producción:
   - tamaños: celular (375 px) y escritorio;
   - flujos: transportista, despachador, widget (incluido desde otro dominio), agente y API pública;
   - en cada página: **revisión de accesibilidad WCAG 2.1 AA con axe-core en modo claro y oscuro** y que nada se
@@ -237,7 +289,8 @@ La API incluye:
 
 ## Correrlo en local
 
-Requisitos: Node 22+, pnpm 10 y Docker (opcional, para Postgres).
+Requisitos: Node 22+, pnpm 10, Docker (opcional, para Postgres) y [uv](https://docs.astral.sh/uv/) (opcional, para el
+servicio de ML).
 
 ```bash
 pnpm install
@@ -259,6 +312,8 @@ pnpm ai:smoke                                  # prueba de punta a punta de la i
 | `DATABASE_URL`          | (ninguna)               | Seed determinista en memoria. Una URL de Neon usa automáticamente el driver HTTP serverless |
 | `RATE_LIMIT_PER_MINUTE` | `20`                    | Peticiones con IA por cliente por minuto                                                    |
 | `NEXT_PUBLIC_APP_URL`   | `http://localhost:3100` | Se usa en los fragmentos de integración                                                     |
+| `ML_SERVICE_URL`        | (ninguna)               | Pesos fijos para ordenar                                                                    |
+| `ML_ADMIN_TOKEN`        | (ninguno)               | Solo lo lee `services/ml`. Sin él, se reentrena desde la terminal pero no por HTTP          |
 
 ```bash
 pnpm check     # formato + lint + typecheck + tests + build
@@ -268,10 +323,10 @@ pnpm e2e       # Playwright (hace build y sirve en :3200 en modo determinista)
 ## Límites y siguientes pasos
 
 - **Rutas reales.** Cambiar haversine × 1.25 por OSRM, con casetas por ruta.
-- **Aprender los pesos.**
-  - Hoy: los eventos de aceptar y rechazar se registran con sus características, pero los pesos son valores fijos.
-  - Siguiente: un servicio pequeño de regresión logística (Python/FastAPI) que ajuste `w_base` y las penalizaciones.
-  - Todavía no existe, y la app no finge que existe.
+- **Aprender con retroalimentación real.**
+  - Hoy: el modelo se entrena y evalúa con transportistas simulados.
+  - Siguiente: decisiones reales, evaluación en línea (A/B o intercalado contra los pesos fijos) y exploración, para que
+    el modelo también aprenda de cargas que casi nunca mostraría primero.
 - **Datos en vivo.** Cargas reales del mercado, tráfico y posición de los camiones por telemetría.
 - **Producto.** Cuentas y autenticación, reserva real en vez de pasar por WhatsApp, Carta Porte y pagos.
 - **Deploy.** Vercel + Neon. El código ya está listo (MCP sin estado, driver HTTP de Neon, sin sesiones en memoria).

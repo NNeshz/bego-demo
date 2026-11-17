@@ -28,6 +28,7 @@ product (an embeddable widget and an MCP server for AI assistants).
 | **Embeddable widget**          | `/embed` · `/widget.js`          | `<retorno-widget>`, a 5 KB (gzip) web component that works in HTML, React or Angular                                                    |
 | **AI agent + MCP server**      | `/agent` · `/api/mcp`            | The engine as tools for an AI assistant: an in-app chat plus a standard MCP endpoint any agent can call                                 |
 | **Public API**                 | `/api/v1/*` · `/docs`            | Versioned REST API with an OpenAPI 3.1 spec generated from the same Zod schemas that validate requests                                  |
+| **Learned weights (ML)**       | `/modelo` · `services/ml`        | A Python service learns each trucker's ranking weights from accept/reject history; "Sort for…" on `/cargas` re-ranks per trucker        |
 
 Simulated week on the synthetic market (25 trucks, 320 loads, 7 days): empty km go from **34.4% to 22.1%**, and fleet
 net profit increases by **+$668,543 MXN** (90 → 121 loads delivered). This illustrates the method, not real-world
@@ -58,8 +59,8 @@ score per hour = (net profit + home bonus − deadhead penalty − wait penalty)
 home bonus     = w_home × (empty-return cost now − empty-return cost after delivery)
 ```
 
-The weights (`w_home` and the two penalties) are what a feedback model would learn. Every accept/reject is already
-logged with its features in `recommendation_events`.
+The weights (`w_home` and the two penalties) are learned from feedback by `services/ml` (see below). Without that
+service, the engine uses hand-set defaults.
 
 **Hard filters** (a load failing any of them is never shown):
 
@@ -214,16 +215,63 @@ The API includes:
 - a per-client rate limit on AI-backed requests;
 - a 64 KB body limit.
 
+## Learning the weights (`services/ml`)
+
+Every results screen is logged as one **decision**: the options shown (with their features and position) and what the
+trucker did (accepted one, or none). A Python service learns ranking weights from those decisions.
+
+- **Features chosen so the model maps back to the engine.** Per hour: net profit, home bonus, empty km and wait hours.
+  The engine score is linear in them, so each coefficient divided by the money coefficient is a weight in MXN
+  ("one hour of waiting is worth $X to this trucker").
+- **Conditional logit** over each screen plus a "drive home empty" alternative, fit with damped Newton in numpy.
+  Options compete within their screen, which is how a trucker actually decides. With one option per screen it reduces
+  to binary logistic regression; a test checks that case against scikit-learn. A position term absorbs the bias
+  toward whatever is shown first.
+- **Per-trucker weights with shrinkage.** Each trucker's model is fit with an L2 penalty toward the global model
+  (empirical Bayes): little history stays close to everyone's weights; more history moves toward their own. The
+  strength is chosen on a validation split, never on the test split.
+- **Publish gate.** A model is only served if it ranks better than the hand-set weights on held-out decisions.
+  Otherwise it is stored for the record and the app keeps the previous one.
+- **Never breaks the app.** The web app asks the service for weights with an 800 ms timeout, caches them, and backs
+  off on failure; any problem means hand-set weights. Each response says which weights were used (`weightsSource`).
+
+There are no real truckers, so the data is **simulated**: 120 synthetic truckers of three types (wants to get home,
+hates waiting, only looks at money) with hidden weights, deciding on real engine output. That lets us measure whether
+the model recovers what it can't see. On 3,000 decisions (held-out, top-1 = the chosen load was ranked first):
+
+| Ranking                                  |     Top 1 |     Top 3 |
+| ---------------------------------------- | --------: | --------: |
+| Order shown (position bias)              |     38.2% |     76.7% |
+| Hand-set engine weights                  |     73.7% |     96.5% |
+| Pointwise logistic regression (baseline) |     72.5% |     95.0% |
+| Global conditional logit                 |     74.3% |     95.9% |
+| **Personalized per trucker (served)**    | **85.7%** | **98.3%** |
+| True hidden preferences (ceiling)        |     86.9% |     98.8% |
+
+Caveats: this is simulated data, so it shows the method works, not how real truckers behave. With ~19 decisions per
+trucker, individual weights are noisy; the per-type medians recover each type's defining preference well, while
+secondary preferences stay closer to the average (that's the shrinkage doing its job).
+
+```bash
+pnpm --filter @retorno/ml dev                          # FastAPI on :8100
+pnpm --filter @retorno/ml simulate -- --decisions 3000 # synthetic truckers decide through the public API
+pnpm --filter @retorno/ml train                        # fit, evaluate, publish if it beats the defaults
+```
+
+Retraining is also available from `/modelo` with the admin token (`ML_ADMIN_TOKEN`, read only by the ML service;
+the web app just forwards what you type).
+
 ## Quality
 
-- **162 unit and integration tests** (Vitest):
+- **176 unit and integration tests** (Vitest) and **36 Python tests** (pytest, strict pyright, ruff):
   - engine, including property-based tests with fast-check;
   - AI with a fake client;
   - Postgres/in-memory parity;
   - API contract tests against the published schemas;
   - the MCP protocol through the official SDK client;
-  - the widget in a simulated DOM.
-- **64 E2E tests** (Playwright) on a production build:
+  - the widget in a simulated DOM;
+  - the ML model: parameter recovery, scikit-learn parity, shrinkage, publish gate and the HTTP API.
+- **72 E2E tests** (Playwright) on a production build:
   - viewports: mobile (375 px) and desktop;
   - flows: trucker, dispatcher, widget (including cross-origin), agent and public API;
   - every page: an **axe-core WCAG 2.1 AA scan in light and dark mode** and a horizontal-overflow check;
@@ -234,7 +282,8 @@ The API includes:
 
 ## Run it locally
 
-Requirements: Node 22+, pnpm 10, and Docker (optional, for Postgres).
+Requirements: Node 22+, pnpm 10, Docker (optional, for Postgres) and [uv](https://docs.astral.sh/uv/) (optional, for
+the ML service).
 
 ```bash
 pnpm install
@@ -249,13 +298,15 @@ pnpm db:up && pnpm db:migrate && pnpm db:seed  # local Postgres in Docker (port 
 pnpm ai:smoke                                  # check the Claude integration end to end
 ```
 
-| Variable                | Default                 | Without it                                                                             |
-| ----------------------- | ----------------------- | -------------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`     | (none)                  | Rule-based parser and template explanations                                            |
-| `ANTHROPIC_MODEL`       | `claude-haiku-5-5`      |                                                                                        |
-| `DATABASE_URL`          | (none)                  | Deterministic in-memory seed. A Neon URL automatically uses the serverless HTTP driver |
-| `RATE_LIMIT_PER_MINUTE` | `20`                    | AI-backed requests per client per minute                                               |
-| `NEXT_PUBLIC_APP_URL`   | `http://localhost:3100` | Used in integration snippets                                                           |
+| Variable                | Default                 | Without it                                                                              |
+| ----------------------- | ----------------------- | --------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`     | (none)                  | Rule-based parser and template explanations                                             |
+| `ANTHROPIC_MODEL`       | `claude-haiku-5-5`      |                                                                                         |
+| `DATABASE_URL`          | (none)                  | Deterministic in-memory seed. A Neon URL automatically uses the serverless HTTP driver  |
+| `RATE_LIMIT_PER_MINUTE` | `20`                    | AI-backed requests per client per minute                                                |
+| `NEXT_PUBLIC_APP_URL`   | `http://localhost:3100` | Used in integration snippets                                                            |
+| `ML_SERVICE_URL`        | (none)                  | Hand-set ranking weights                                                                |
+| `ML_ADMIN_TOKEN`        | (none)                  | Read by `services/ml` only. Without it, retraining works from the CLI but not over HTTP |
 
 ```bash
 pnpm check     # format + lint + typecheck + tests + build
@@ -265,10 +316,10 @@ pnpm e2e       # Playwright (builds and serves on :3200 in deterministic mode)
 ## Limitations and next steps
 
 - **Real routing.** Replace haversine × 1.25 with OSRM, including tolls per route.
-- **Learning the weights.**
-  - Today: accept/reject events are logged with features, but the weights are hand-set defaults.
-  - Next: a small logistic-regression service (Python/FastAPI) that fits `w_home` and the penalties.
-  - It isn't built yet, and the app doesn't pretend it is.
+- **Learning from real feedback.**
+  - Today: the model is trained and evaluated on simulated truckers.
+  - Next: real decisions, online evaluation (A/B or interleaving against the hand-set weights), and exploration so the
+    model also learns about loads it would rarely show first.
 - **Live data.** Real market loads, traffic, and truck positions from telematics.
 - **Product.** Accounts and auth, real booking instead of a WhatsApp hand-off, Carta Porte, payments.
 - **Deploy.** Vercel + Neon. The code is ready for it (stateless MCP, Neon HTTP driver, no in-memory sessions).
