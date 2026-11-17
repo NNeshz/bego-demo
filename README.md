@@ -9,6 +9,10 @@ home empty, explains why in plain trucker Spanish, and gives you a WhatsApp mess
 > **Unofficial concept by Neftalí Hernández. Not affiliated with BeGo.** All data is synthetic. Cost defaults (diesel,
 > fuel efficiency, tolls) are configurable assumptions, not market data.
 
+**Live demo: [bego-demo.vercel.app](https://bego-demo.vercel.app)** (best on a phone) ·
+[Dispatcher view](https://bego-demo.vercel.app/despacho) · [Learned weights](https://bego-demo.vercel.app/modelo) ·
+[API docs](https://bego-demo.vercel.app/docs)
+
 
 ---
 
@@ -322,7 +326,8 @@ pnpm e2e       # Playwright (builds and serves on :3200 in deterministic mode)
     model also learns about loads it would rarely show first.
 - **Live data.** Real market loads, traffic, and truck positions from telematics.
 - **Product.** Accounts and auth, real booking instead of a WhatsApp hand-off, Carta Porte, payments.
-- **Deploy.** Vercel + Neon. The code is ready for it (stateless MCP, Neon HTTP driver, no in-memory sessions).
+- **Deploy.** Live on Vercel (web) + Neon (Postgres) + Fly.io (ML service, `services/ml/fly.toml`; it suspends when
+  idle and resumes in ~2 s). Next: a custom domain, and moving the ML service to the same cloud as the data.
 
 ---
 

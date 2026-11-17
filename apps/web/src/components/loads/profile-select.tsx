@@ -46,7 +46,7 @@ export function ProfileSelect({
         }}
         className={cn("control", pending && "opacity-60")}
       >
-        <option value="">Cualquier transportista (pesos globales)</option>
+        <option value="">Cualquier transportista</option>
         {options.map((option) => (
           <option key={option.truckId} value={option.truckId}>
             {option.label}

@@ -9,6 +9,10 @@ frente a regresar vacío, te explica por qué en lenguaje de transportista y te 
 > **Concepto no oficial por Neftalí Hernández. No afiliado a BeGo.** Todos los datos son sintéticos. Los costos por
 > defecto (diésel, rendimiento, casetas) son supuestos configurables, no datos de mercado.
 
+**Demo en vivo: [bego-demo.vercel.app](https://bego-demo.vercel.app)** (mejor desde el celular) ·
+[Vista de despachador](https://bego-demo.vercel.app/despacho) · [Pesos aprendidos](https://bego-demo.vercel.app/modelo) ·
+[Docs de la API](https://bego-demo.vercel.app/docs)
+
 
 ---
 
@@ -329,7 +333,8 @@ pnpm e2e       # Playwright (hace build y sirve en :3200 en modo determinista)
     el modelo también aprenda de cargas que casi nunca mostraría primero.
 - **Datos en vivo.** Cargas reales del mercado, tráfico y posición de los camiones por telemetría.
 - **Producto.** Cuentas y autenticación, reserva real en vez de pasar por WhatsApp, Carta Porte y pagos.
-- **Deploy.** Vercel + Neon. El código ya está listo (MCP sin estado, driver HTTP de Neon, sin sesiones en memoria).
+- **Deploy.** En vivo en Vercel (web) + Neon (Postgres) + Fly.io (servicio de ML, `services/ml/fly.toml`; se suspende
+  sin uso y despierta en ~2 s). Siguiente: dominio propio y llevar el servicio de ML a la misma nube que los datos.
 
 ---
 
