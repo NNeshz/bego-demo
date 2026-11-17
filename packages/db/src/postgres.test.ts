@@ -22,79 +22,86 @@ describe("isNeonUrl", () => {
   });
 });
 
-describe.skipIf(!databaseUrl)("postgres source (integration)", () => {
-  const now = () => new Date("2026-11-16T16:00:00.000Z");
-  const source = createPostgresSource(databaseUrl!, { now });
-  const memory = createMemorySource({ now });
-  const createdEventIds: string[] = [];
-
-  afterAll(async () => {
-    if (createdEventIds.length > 0) {
-      const { db, close } = createDb(databaseUrl!);
-      await db
-        .delete(recommendationEvents)
-        .where(inArray(recommendationEvents.id, createdEventIds));
-      await close();
-    }
-    await source.close();
+// Plain `if`, not describe.skipIf: a skipped describe still runs its body to collect tests,
+// which would try to connect with an undefined URL (it did, in CI).
+if (!databaseUrl) {
+  describe.skip("postgres source (integration): set DATABASE_URL to run", () => {
+    it.skip("needs a database", () => {});
   });
+} else
+  describe("postgres source (integration)", () => {
+    const now = () => new Date("2026-11-16T16:00:00.000Z");
+    const source = createPostgresSource(databaseUrl, { now });
+    const memory = createMemorySource({ now });
+    const createdEventIds: string[] = [];
 
-  const byId = <T extends { id: string }>(items: T[]) =>
-    [...items].sort((a, b) => a.id.localeCompare(b.id));
+    afterAll(async () => {
+      if (createdEventIds.length > 0) {
+        const { db, close } = createDb(databaseUrl!);
+        await db
+          .delete(recommendationEvents)
+          .where(inArray(recommendationEvents.id, createdEventIds));
+        await close();
+      }
+      await source.close();
+    });
 
-  it("returns exactly the same market as the in-memory seed", async () => {
-    expect(byId(await source.listLoads())).toEqual(byId(await memory.listLoads()));
-  });
+    const byId = <T extends { id: string }>(items: T[]) =>
+      [...items].sort((a, b) => a.id.localeCompare(b.id));
 
-  it("returns exactly the same fleet as the in-memory seed", async () => {
-    expect(byId(await source.listTrucks())).toEqual(byId(await memory.listTrucks()));
-  });
+    it("returns exactly the same market as the in-memory seed", async () => {
+      expect(byId(await source.listLoads())).toEqual(byId(await memory.listLoads()));
+    });
 
-  it("returns the same cities", async () => {
-    expect(byId(await source.listCities())).toEqual(byId(await memory.listCities()));
-  });
+    it("returns exactly the same fleet as the in-memory seed", async () => {
+      expect(byId(await source.listTrucks())).toEqual(byId(await memory.listTrucks()));
+    });
 
-  it("stores a decision batch with its grouping fields", async () => {
-    const decisionId = crypto.randomUUID();
-    const stored = await source.recordEvents(
-      [1, 2].map((rank) => ({
-        action: "shown" as const,
-        loadIds: [`CRG-000${rank}`],
-        rank,
-        scorePerHour: 900,
-        gainVsEmptyMxn: 12_000,
-        features: { net_per_hour: 480.5, wait_per_hour: 0.1 },
+    it("returns the same cities", async () => {
+      expect(byId(await source.listCities())).toEqual(byId(await memory.listCities()));
+    });
+
+    it("stores a decision batch with its grouping fields", async () => {
+      const decisionId = crypto.randomUUID();
+      const stored = await source.recordEvents(
+        [1, 2].map((rank) => ({
+          action: "shown" as const,
+          loadIds: [`CRG-000${rank}`],
+          rank,
+          scorePerHour: 900,
+          gainVsEmptyMxn: 12_000,
+          features: { net_per_hour: 480.5, wait_per_hour: 0.1 },
+          decisionId,
+          policy: "explore",
+          source: "simulator" as const,
+        })),
+      );
+      createdEventIds.push(...stored.map((e) => e.id));
+      expect(stored).toHaveLength(2);
+      expect(stored[1]).toMatchObject({
+        rank: 2,
         decisionId,
         policy: "explore",
-        source: "simulator" as const,
-      })),
-    );
-    createdEventIds.push(...stored.map((e) => e.id));
-    expect(stored).toHaveLength(2);
-    expect(stored[1]).toMatchObject({
-      rank: 2,
-      decisionId,
-      policy: "explore",
-      source: "simulator",
+        source: "simulator",
+      });
+      expect(stored[0]!.features).toEqual({ net_per_hour: 480.5, wait_per_hour: 0.1 });
     });
-    expect(stored[0]!.features).toEqual({ net_per_hour: 480.5, wait_per_hour: 0.1 });
-  });
 
-  it("round-trips recommendation events", async () => {
-    const stored = await source.recordEvent({
-      action: "accepted",
-      truckId: "U-001",
-      loadIds: ["CRG-0001", "CRG-0002"],
-      rank: 2,
-      scorePerHour: 812.5,
-      gainVsEmptyMxn: 18_250.75,
-      features: { deadheadKm: 42.1, kmCloserToBase: 310 },
+    it("round-trips recommendation events", async () => {
+      const stored = await source.recordEvent({
+        action: "accepted",
+        truckId: "U-001",
+        loadIds: ["CRG-0001", "CRG-0002"],
+        rank: 2,
+        scorePerHour: 812.5,
+        gainVsEmptyMxn: 18_250.75,
+        features: { deadheadKm: 42.1, kmCloserToBase: 310 },
+      });
+      createdEventIds.push(stored.id);
+
+      const [latest] = await source.listEvents(1);
+      expect(latest).toEqual(stored);
+      expect(latest!.loadIds).toEqual(["CRG-0001", "CRG-0002"]);
+      expect(latest!.features).toEqual({ deadheadKm: 42.1, kmCloserToBase: 310 });
     });
-    createdEventIds.push(stored.id);
-
-    const [latest] = await source.listEvents(1);
-    expect(latest).toEqual(stored);
-    expect(latest!.loadIds).toEqual(["CRG-0001", "CRG-0002"]);
-    expect(latest!.features).toEqual({ deadheadKm: 42.1, kmCloserToBase: 310 });
   });
-});
