@@ -12,14 +12,16 @@ test.describe("trucker flow", () => {
 
     await page.getByRole("button", { name: /Descargo en Laredo mañana/ }).click();
     await expect(page.getByText("Leído sin IA")).toBeVisible();
-    await expect(page.getByText("Nuevo Laredo", { exact: true })).toBeVisible();
-    await expect(page.getByText("Caja seca 53'", { exact: true })).toBeVisible();
-    await expect(page.getByText("Querétaro", { exact: true })).toBeVisible();
+    // Scoped to the form rows: the home page also shows an example result for the same trip.
+    await expect(page.getByRole("button", { name: /Descargas en/ })).toContainText("Nuevo Laredo");
+    await expect(page.getByRole("button", { name: /Tu unidad/ })).toContainText("Caja seca 53'");
+    await expect(page.getByRole("button", { name: /Tu base/ })).toContainText("Querétaro");
 
     await page.getByRole("button", { name: /Ver cargas de regreso/ }).click();
     await expect(page).toHaveURL(/\/cargas\?desde=nuevo-laredo/);
-    await expect(page.getByText("Mejor opción")).toBeVisible();
+    // Scoped to the result cards: Next keeps the previous page (with its example card) mounted but hidden.
     const cards = page.locator('a[href^="/cargas/CRG"]');
+    await expect(cards.first()).toContainText("Mejor opción");
     await expect(cards).toHaveCount(5);
     await expect(cards.first()).toContainText(/\+\$[\d,]+/);
 
