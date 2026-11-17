@@ -8,6 +8,7 @@ const PAGES = (): Array<[string, string]> => [
   ["dispatcher", "/despacho"],
   ["widget", "/embed"],
   ["agent", "/agent"],
+  ["model", "/modelo"],
 ];
 
 for (const [name, path] of PAGES()) {

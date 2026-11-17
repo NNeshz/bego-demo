@@ -52,8 +52,32 @@ export const TruckInputSchema = z
     availableAt: IsoDateTime.optional().meta({
       description: "When the truck is free at `position`. Defaults to now.",
     }),
+    truckId: z.string().max(64).optional().meta({
+      description:
+        "Who is asking. Enables personalized ranking weights learned from this trucker's feedback.",
+      example: "sim-casa-1",
+    }),
   })
   .meta({ id: "TruckInput" });
+
+export const WeightsSourceSchema = z
+  .discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("learned"),
+      version: z.number().int(),
+      scope: z.enum(["trucker", "global"]),
+    }),
+    z.object({
+      kind: z.literal("default"),
+      reason: z.enum(["not_configured", "unavailable", "no_model"]),
+    }),
+    z.object({ kind: z.literal("request") }),
+  ])
+  .meta({
+    id: "WeightsSource",
+    description:
+      "Which ranking weights were used: learned by the ML service (personal or global), hand-set defaults, or overrides from the request.",
+  });
 
 export const CostOverridesSchema = z
   .object({
@@ -187,6 +211,7 @@ export const RecommendationsResponseSchema = z
       }),
     }),
     assumptions: AssumptionsSchema,
+    weightsSource: WeightsSourceSchema,
     generatedAt: z.string(),
   })
   .meta({ id: "RecommendationsResponse" });
@@ -218,6 +243,7 @@ export const ChainsResponseSchema = z
     chains: z.array(ChainSchema),
     emptyReturn: EmptyReturnSchema,
     assumptions: AssumptionsSchema,
+    weightsSource: WeightsSourceSchema,
     generatedAt: z.string(),
   })
   .meta({ id: "ChainsResponse" });

@@ -15,6 +15,7 @@ export interface FeedbackPayload {
   decisionId?: string | undefined;
   policy: string;
   source: "app";
+  truckId?: string | undefined;
 }
 
 /** Fire-and-forget feedback event; `keepalive` lets it finish even if the page navigates away. */

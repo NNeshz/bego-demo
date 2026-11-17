@@ -53,6 +53,8 @@ export default defineConfig({
       ANTHROPIC_API_KEY: "",
       NEXT_PUBLIC_APP_URL: `http://localhost:${PORT}`,
       RATE_LIMIT_PER_MINUTE: "10000",
+      // No ML service in E2E: ranking uses the hand-set weights (deterministic).
+      ML_SERVICE_URL: "",
     },
   },
 });

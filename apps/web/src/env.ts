@@ -17,6 +17,8 @@ export const envSchema = z.object({
   DATABASE_URL: z.preprocess(emptyToUndefined, z.url().optional()),
   NEXT_PUBLIC_APP_URL: z.preprocess(emptyToUndefined, z.url().default("http://localhost:3100")),
   /** AI-backed requests per client per minute (parse-trip, explanations, agent, MCP tool calls). */
+  /** services/ml (learned ranking weights). Without it: hand-set weights. */
+  ML_SERVICE_URL: z.preprocess(emptyToUndefined, z.url().optional()),
   RATE_LIMIT_PER_MINUTE: z.preprocess(
     emptyToUndefined,
     z.coerce.number().int().min(1).max(10_000).default(20),

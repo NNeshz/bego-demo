@@ -7,6 +7,7 @@ import {
 } from "@retorno/ai";
 import { CITIES, createDataSource, type City, type DataSource } from "@retorno/db";
 import { env } from "@/env";
+import { createWeightsProvider, type WeightsProvider } from "./learned-weights";
 
 /**
  * Process-wide dependencies. Created once and reused across requests so that
@@ -22,6 +23,8 @@ export interface ServerContext {
   clientLimiter: RateLimiter;
   /** Tool-use model for /agent. Undefined without an API key (deterministic fallback agent). */
   agentLlm?: AgentLlm | undefined;
+  /** Ranking weights learned by services/ml (falls back to hand-set defaults). */
+  weights: WeightsProvider;
 }
 
 const store = globalThis as typeof globalThis & { __retornoContext?: ServerContext };
@@ -49,6 +52,7 @@ function createContext(): ServerContext {
       capacity: env.RATE_LIMIT_PER_MINUTE,
       refillPerMinute: env.RATE_LIMIT_PER_MINUTE,
     }),
+    weights: createWeightsProvider({ baseUrl: env.ML_SERVICE_URL }),
     agentLlm: env.ANTHROPIC_API_KEY
       ? createAnthropicAgentLlm({ apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL })
       : undefined,

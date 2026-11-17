@@ -9,6 +9,8 @@ import { AppHeader } from "@/components/app-header";
 import { ChainCard } from "@/components/loads/chain-card";
 import { EmptyState } from "@/components/loads/empty-state";
 import { ImpressionLogger, type ShownEvent } from "@/components/loads/impression-logger";
+import { ProfileSelect, type ProfileOption } from "@/components/loads/profile-select";
+import { PERSONA_LABELS, weightsSourceLabel } from "@/lib/personas";
 import { RecommendationCard } from "@/components/loads/recommendation-card";
 import { ResultsTabs } from "@/components/loads/results-tabs";
 import { FadeIn } from "@/components/motion";
@@ -43,10 +45,15 @@ async function Results({ searchParams }: { searchParams: PageProps<"/cargas">["s
   const ctx = getContext();
   const now = ctx.now();
   const truck = tripToTruckInput(trip);
-  const [result, chainResult] = await Promise.all([
+  const [result, chainResult, model] = await Promise.all([
     getRecommendations(ctx, { truck, limit: 5, explain: false }),
     getChains(ctx, { truck, limit: 3, explain: false, beamWidth: 20 }),
+    ctx.weights.model(),
   ]);
+  const profiles: ProfileOption[] = (model?.published ? model.demoTruckers : []).map((d) => ({
+    truckId: d.truckId,
+    label: `${PERSONA_LABELS[d.persona] ?? d.persona} (${d.truckId})`,
+  }));
 
   // One screen = one decision: every option shown is logged under this id (the model's negatives),
   // and the detail links carry it so accept/reject joins the same decision.
@@ -62,6 +69,7 @@ async function Results({ searchParams }: { searchParams: PageProps<"/cargas">["s
     decisionId,
     policy: "engine",
     source: "app",
+    ...(trip.truckId ? { truckId: trip.truckId } : {}),
   }));
   const unload = getCity(trip.unloadCityId);
   const base = getCity(trip.baseCityId);
@@ -116,6 +124,14 @@ async function Results({ searchParams }: { searchParams: PageProps<"/cargas">["s
             <span className="font-medium">−{money(emptyCost)}</span>
           </span>
         </div>
+        {profiles.length > 0 && (
+          <ProfileSelect
+            options={profiles}
+            current={trip.truckId}
+            baseQuery={tripQuery({ ...trip, truckId: undefined })}
+            sourceLabel={weightsSourceLabel(result.weightsSource)}
+          />
+        )}
       </section>
 
       {result.recommendations.length === 0 ? (

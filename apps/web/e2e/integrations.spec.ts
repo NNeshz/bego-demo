@@ -75,3 +75,27 @@ test.describe("public API surface", () => {
     await expect(page).toHaveTitle(/Retorno API/);
   });
 });
+
+test.describe("learned weights", () => {
+  test("without the ML service the app ranks with hand-set weights and says so", async ({
+    page,
+    request,
+  }) => {
+    const body = await (
+      await request.post("/api/v1/recommendations", {
+        data: {
+          truck: {
+            unitType: "dry_van_53",
+            position: { cityId: "nuevo-laredo" },
+            base: { cityId: "queretaro" },
+            truckId: "sim-casa-1",
+          },
+        },
+      })
+    ).json();
+    expect(body.weightsSource).toEqual({ kind: "default", reason: "not_configured" });
+
+    await page.goto("/modelo");
+    await expect(page.getByText("El servicio de ML no está configurado")).toBeVisible();
+  });
+});

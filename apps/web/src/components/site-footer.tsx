@@ -15,6 +15,10 @@ export function SiteFooter() {
         Agente
       </Link>
       <span aria-hidden>·</span>
+      <Link href="/modelo" className="hover:text-foreground hover:underline">
+        Modelo
+      </Link>
+      <span aria-hidden>·</span>
       <Link href="/docs" className="hover:text-foreground hover:underline">
         API
       </Link>

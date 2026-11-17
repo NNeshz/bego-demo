@@ -13,6 +13,11 @@ export const TripParamsSchema = z.object({
   hora: z.iso.datetime({ offset: true }),
   unidad: z.enum(UNIT_TYPES),
   base: z.enum(cityIds),
+  /** Optional trucker id: personalizes ranking with weights learned from their feedback. */
+  t: z
+    .string()
+    .regex(/^[a-z0-9-]{1,64}$/)
+    .optional(),
 });
 
 export interface Trip {
@@ -20,6 +25,7 @@ export interface Trip {
   unloadAt: string;
   unitType: UnitType;
   baseCityId: string;
+  truckId?: string | undefined;
 }
 
 type RawParams = Record<string, string | string[] | undefined>;
@@ -35,6 +41,7 @@ export function parseTripParams(params: RawParams): Trip | null {
     unloadAt: parsed.data.hora,
     unitType: parsed.data.unidad,
     baseCityId: parsed.data.base,
+    ...(parsed.data.t ? { truckId: parsed.data.t } : {}),
   };
 }
 
@@ -50,6 +57,7 @@ export function tripQuery(trip: Trip): string {
     hora: trip.unloadAt,
     unidad: trip.unitType,
     base: trip.baseCityId,
+    ...(trip.truckId ? { t: trip.truckId } : {}),
   }).toString();
 }
 
@@ -59,5 +67,6 @@ export function tripToTruckInput(trip: Trip) {
     position: { cityId: trip.unloadCityId },
     base: { cityId: trip.baseCityId },
     availableAt: trip.unloadAt,
+    ...(trip.truckId ? { truckId: trip.truckId } : {}),
   };
 }

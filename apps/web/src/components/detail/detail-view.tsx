@@ -194,6 +194,7 @@ export function DetailView({
           decisionId,
           policy: "engine",
           source: "app",
+          ...(truck.truckId ? { truckId: truck.truckId } : {}),
         }}
       />
     </>

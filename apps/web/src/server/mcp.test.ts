@@ -9,6 +9,7 @@ import { CITIES, createMemorySource } from "@retorno/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE, GET, POST } from "@/app/api/mcp/route";
 import { setContextForTests } from "./context";
+import { createWeightsProvider } from "./learned-weights";
 
 const NOW = new Date("2026-11-16T16:00:00.000Z");
 const now = () => NOW;
@@ -28,6 +29,7 @@ beforeEach(async () => {
     cities: CITIES,
     now,
     clientLimiter: new RateLimiter({ capacity: 100, refillPerMinute: 0 }),
+    weights: createWeightsProvider({}),
   });
   client = new Client({ name: "test-client", version: "1.0.0" });
   await client.connect(
@@ -136,6 +138,7 @@ describe("MCP server", () => {
       cities: CITIES,
       now,
       clientLimiter: new RateLimiter({ capacity: 100, refillPerMinute: 0 }),
+      weights: createWeightsProvider({}),
     });
     vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await client.callTool({ name: "find_return_loads", arguments: trip });

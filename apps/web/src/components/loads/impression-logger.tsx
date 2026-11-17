@@ -12,6 +12,7 @@ export interface ShownEvent {
   decisionId: string;
   policy: string;
   source: "app";
+  truckId?: string | undefined;
 }
 
 /** Survives React StrictMode's double effect in dev: each decision is logged once per page load. */

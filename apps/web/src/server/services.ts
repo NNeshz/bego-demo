@@ -20,6 +20,7 @@ import {
   type UnitType,
 } from "@retorno/engine";
 import { ApiError } from "./api/http";
+import type { ResolvedWeights } from "./learned-weights";
 import type { ServerContext } from "./context";
 
 export type LocationInput =
@@ -30,6 +31,8 @@ export interface TruckInput {
   position: LocationInput;
   base: LocationInput;
   availableAt?: string | undefined;
+  /** Who is asking: enables personalized ranking weights learned from their feedback. */
+  truckId?: string | undefined;
 }
 
 interface EngineInput {
@@ -64,6 +67,7 @@ export function resolveLocation(location: LocationInput, field: string): Place {
 
 export function toTruckState(input: TruckInput, now: Date): TruckState {
   return {
+    ...(input.truckId ? { truckId: input.truckId } : {}),
     unitType: input.unitType,
     position: resolveLocation(input.position, "truck.position"),
     base: resolveLocation(input.base, "truck.base"),
@@ -84,18 +88,35 @@ export function roundDeep<T>(value: T, key = ""): T {
   return value;
 }
 
-function assumptions(input: EngineInput) {
-  const resolved = resolveOptions({ costs: input.costs, weights: input.weights });
+/**
+ * Ranking weights for a request: explicit overrides win; otherwise the learned weights
+ * for this trucker (or the global learned ones), falling back to the hand-set defaults.
+ */
+export async function resolveWeights(
+  ctx: ServerContext,
+  input: { weights?: Partial<ScoreWeights> | undefined; truck: TruckInput },
+): Promise<ResolvedWeights> {
+  if (input.weights) {
+    return {
+      weights: resolveOptions({ weights: input.weights }).weights,
+      source: { kind: "request" },
+    };
+  }
+  return ctx.weights.get(input.truck.truckId);
+}
+
+function assumptions(input: EngineInput, weights: ScoreWeights) {
+  const resolved = resolveOptions({ costs: input.costs, weights });
   return { costs: { ...resolved.costs }, weights: { ...resolved.weights } };
 }
 
 export async function getRecommendations(ctx: ServerContext, input: EngineInput) {
   const truck = toTruckState(input.truck, ctx.now());
-  const loads = await ctx.data.listLoads();
+  const [loads, ranking] = await Promise.all([ctx.data.listLoads(), resolveWeights(ctx, input)]);
   const result = recommend(truck, loads, {
     limit: input.limit,
     ...(input.costs ? { costs: input.costs } : {}),
-    ...(input.weights ? { weights: input.weights } : {}),
+    weights: ranking.weights,
   });
 
   // Model features travel with each recommendation: the ML service and the app log the
@@ -117,17 +138,18 @@ export async function getRecommendations(ctx: ServerContext, input: EngineInput)
   return roundDeep({
     ...result,
     recommendations,
-    assumptions: assumptions(input),
+    assumptions: assumptions(input, ranking.weights),
+    weightsSource: ranking.source,
     generatedAt: ctx.now().toISOString(),
   });
 }
 
 export async function getChains(ctx: ServerContext, input: EngineInput & { beamWidth: number }) {
   const truck = toTruckState(input.truck, ctx.now());
-  const loads = await ctx.data.listLoads();
+  const [loads, ranking] = await Promise.all([ctx.data.listLoads(), resolveWeights(ctx, input)]);
   const options = {
     ...(input.costs ? { costs: input.costs } : {}),
-    ...(input.weights ? { weights: input.weights } : {}),
+    weights: ranking.weights,
   };
   const chains = planChains(truck, loads, {
     ...options,
@@ -152,7 +174,8 @@ export async function getChains(ctx: ServerContext, input: EngineInput & { beamW
   return roundDeep({
     chains: withExplanations,
     emptyReturn,
-    assumptions: assumptions(input),
+    assumptions: assumptions(input, ranking.weights),
+    weightsSource: ranking.source,
     generatedAt: ctx.now().toISOString(),
   });
 }
@@ -163,7 +186,10 @@ export async function getLoadDetail(ctx: ServerContext, truckInput: TruckInput, 
   const loads = await ctx.data.listLoads();
   const load = loads.find((l) => l.id === loadId);
   if (!load) return null;
-  const options = resolveOptions();
+  // Same weights as the results screen, so the score logged with feedback matches what was ranked.
+  const options = resolveOptions({
+    weights: (await resolveWeights(ctx, { truck: truckInput })).weights,
+  });
   const evaluation = evaluateLoad(truck, load, options);
   if (!evaluation.ok) return null;
   return {
@@ -184,7 +210,8 @@ export async function getChainDetail(
   const first = loads.find((l) => l.id === firstId);
   const second = loads.find((l) => l.id === secondId);
   if (!first || !second) return null;
-  const chain = evaluateChain(truck, first, second);
+  const { weights } = await resolveWeights(ctx, { truck: truckInput });
+  const chain = evaluateChain(truck, first, second, { weights });
   if (!chain) return null;
   return {
     truck,

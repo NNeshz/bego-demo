@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/agent/route";
 import { trimHistory } from "./agent";
 import { setContextForTests } from "./context";
+import { createWeightsProvider } from "./learned-weights";
 
 const NOW = new Date("2026-11-16T16:00:00.000Z");
 const now = () => NOW;
@@ -15,6 +16,7 @@ function useContext(agentLlm?: AgentLlm) {
     cities: CITIES,
     now,
     clientLimiter: new RateLimiter({ capacity: 100, refillPerMinute: 0 }),
+    weights: createWeightsProvider({}),
     agentLlm,
   });
 }

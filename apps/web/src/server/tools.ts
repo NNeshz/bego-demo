@@ -33,6 +33,13 @@ const TripShape = {
     .describe(
       "When the truck is free at `position`, ISO-8601 with offset (Mexico City is -06:00). Defaults to now.",
     ),
+  truck_id: z
+    .string()
+    .max(64)
+    .optional()
+    .describe(
+      "The trucker's id, if known: ranks with weights learned from their own accept/reject history.",
+    ),
 };
 
 const round = (n: number) => Math.round(n);
@@ -43,12 +50,14 @@ function toTruck(input: {
   base: string;
   unit_type: (typeof UNIT_TYPES)[number];
   available_at?: string | undefined;
+  truck_id?: string | undefined;
 }): TruckInput {
   return {
     unitType: input.unit_type,
     position: { cityId: input.position },
     base: { cityId: input.base },
     availableAt: input.available_at,
+    truckId: input.truck_id,
   };
 }
 

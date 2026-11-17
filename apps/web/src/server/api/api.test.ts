@@ -16,6 +16,7 @@ import { GET as openapiGET } from "@/app/api/v1/openapi.json/route";
 import { POST as parsePOST } from "@/app/api/v1/parse-trip/route";
 import { OPTIONS, POST as recommendationsPOST } from "@/app/api/v1/recommendations/route";
 import { GET as simulationGET } from "@/app/api/v1/simulation/route";
+import { createWeightsProvider } from "@/server/learned-weights";
 import { setContextForTests, type ServerContext } from "@/server/context";
 import {
   ChainsResponseSchema,
@@ -49,6 +50,7 @@ function makeContext(
       capacity: overrides.clientCapacity ?? 100,
       refillPerMinute: 0,
     }),
+    weights: createWeightsProvider({}),
   };
 }
 
@@ -131,6 +133,54 @@ describe("POST /recommendations", () => {
       RecommendationsResponseSchema,
     );
     expect(body.recommendations.length).toBeGreaterThan(0);
+  });
+
+  it("ranks with hand-set weights when no ML service is configured", async () => {
+    const body = await expectJson(
+      await post(recommendationsPOST, "/recommendations", { truck: flagshipTruck }),
+      200,
+      RecommendationsResponseSchema,
+    );
+    expect(body.weightsSource).toEqual({ kind: "default", reason: "not_configured" });
+  });
+
+  it("uses learned personal weights for a known trucker", async () => {
+    const personal = { home: 2.5, deadheadPenaltyMxnPerKm: 6, waitPenaltyMxnPerHour: 60 };
+    const ctx = makeContext();
+    ctx.weights = createWeightsProvider({
+      baseUrl: "http://ml",
+      fetch: (async (url: string) =>
+        Response.json(
+          String(url).includes("truck_id=sim-casa-1")
+            ? { version: 7, scope: "trucker", weights: personal }
+            : {
+                version: 7,
+                scope: "global",
+                weights: { home: 1, deadheadPenaltyMxnPerKm: 0, waitPenaltyMxnPerHour: 0 },
+              },
+        )) as unknown as typeof fetch,
+    });
+    setContextForTests(ctx);
+    const body = await expectJson(
+      await post(recommendationsPOST, "/recommendations", {
+        truck: { ...flagshipTruck, truckId: "sim-casa-1" },
+      }),
+      200,
+      RecommendationsResponseSchema,
+    );
+    expect(body.weightsSource).toEqual({ kind: "learned", version: 7, scope: "trucker" });
+    expect(body.assumptions.weights).toEqual(personal);
+  });
+
+  it("explicit weight overrides win over learned ones", async () => {
+    const body = await (
+      await post(recommendationsPOST, "/recommendations", {
+        truck: flagshipTruck,
+        weights: { home: 3 },
+      })
+    ).json();
+    expect(body.weightsSource).toEqual({ kind: "request" });
+    expect(body.assumptions.weights.home).toBe(3);
   });
 
   it("applies cost overrides", async () => {
