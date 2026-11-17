@@ -62,6 +62,11 @@ export interface WeightsProviderOptions {
   fetch?: typeof fetch;
   /** Ranking must stay fast: give up on the ML service quickly. */
   timeoutMs?: number;
+  /**
+   * The /modelo report streams behind its own skeleton, so it can wait longer: enough for a
+   * scaled-to-zero service to wake up (Fly resumes a suspended machine in ~2–3 s).
+   */
+  modelTimeoutMs?: number;
   ttlMs?: number;
   /** After a failure, don't retry for this long (avoids hammering a down service). */
   failureTtlMs?: number;
@@ -80,14 +85,20 @@ export function createWeightsProvider(options: WeightsProviderOptions): WeightsP
   const doFetch = options.fetch ?? fetch;
   const timeoutMs = options.timeoutMs ?? 800;
   const ttlMs = options.ttlMs ?? 60_000;
-  const failureTtlMs = options.failureTtlMs ?? 15_000;
+  // Short: a sleeping service that just got woken up by a timed-out request is usually
+  // ready a few seconds later.
+  const failureTtlMs = options.failureTtlMs ?? 5_000;
+  const modelTimeoutMs = options.modelTimeoutMs ?? 5_000;
   const now = options.now ?? Date.now;
   const cache = new Map<string, { value: ResolvedWeights; expiresAt: number }>();
   let modelCache: { value: ModelSummary | null; expiresAt: number } | undefined;
 
-  async function getJson(path: string): Promise<{ status: number; body: unknown }> {
+  async function getJson(
+    path: string,
+    timeout = timeoutMs,
+  ): Promise<{ status: number; body: unknown }> {
     const response = await doFetch(`${baseUrl}${path}`, {
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.timeout(timeout),
       cache: "no-store",
     });
     return {
@@ -137,7 +148,7 @@ export function createWeightsProvider(options: WeightsProviderOptions): WeightsP
       if (modelCache && modelCache.expiresAt > now()) return modelCache.value;
       let value: ModelSummary | null = null;
       try {
-        const { status, body } = await getJson("/model");
+        const { status, body } = await getJson("/model", modelTimeoutMs);
         value = status === 200 ? ModelSummarySchema.parse(body) : null;
       } catch {
         value = null;

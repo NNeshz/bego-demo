@@ -37,6 +37,47 @@ describe("createWeightsProvider", () => {
     expect(fetch.mock.calls[0]![0]).toBe("http://ml/weights?truck_id=sim-casa-1");
   });
 
+  it("the model report waits for a waking service; ranking does not", async () => {
+    const summary = {
+      version: 1,
+      trainedAt: "2026-11-17T00:00:00Z",
+      trainedOn: 10,
+      published: true,
+      weights: learned,
+      truckers: 0,
+      metrics: {},
+      demoTruckers: [],
+    };
+    // Answers after 60 ms, like a suspended machine resuming.
+    const waking = ((input: string, init?: RequestInit) =>
+      new Promise((resolve, reject) => {
+        const url = String(input);
+        const timer = setTimeout(
+          () =>
+            resolve(
+              Response.json(
+                url.endsWith("/model")
+                  ? summary
+                  : { version: 1, scope: "global", weights: learned },
+              ),
+            ),
+          60,
+        );
+        init?.signal?.addEventListener("abort", () => {
+          clearTimeout(timer);
+          reject(init.signal!.reason);
+        });
+      })) as typeof fetch;
+    const provider = createWeightsProvider({
+      baseUrl: "http://ml",
+      fetch: waking,
+      timeoutMs: 20,
+      modelTimeoutMs: 500,
+    });
+    expect((await provider.get()).source).toEqual({ kind: "default", reason: "unavailable" });
+    expect((await provider.model())?.version).toBe(1);
+  });
+
   it("falls back to defaults when there is no published model", async () => {
     const provider = createWeightsProvider({
       baseUrl: "http://ml",
