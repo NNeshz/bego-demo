@@ -40,6 +40,9 @@ export function EmptyKmChart({
   const started = t > x0;
   const b = seriesAt(baseline, t).emptyKmPct;
   const r = seriesAt(recommended, t).emptyKmPct;
+  // Near the right edge the value tags sit over the axis labels: hide the labels they'd cover.
+  const tagsAtEdge = started && x(Math.min(t, endMs)) > plotW * 0.85;
+  const covered = (pct: number) => tagsAtEdge && (Math.abs(pct - b) < 4 || Math.abs(pct - r) < 4);
 
   return (
     <div className="relative">
@@ -88,15 +91,17 @@ export function EmptyKmChart({
         )}
       </svg>
       {/* HTML labels: SVG text would be stretched by preserveAspectRatio="none". */}
-      {ticks.map((pct) => (
-        <span
-          key={pct}
-          className="tabular absolute right-0 -translate-y-1/2 text-[10px] text-muted-foreground"
-          style={{ top: `${(y(pct) / H) * 100}%` }}
-        >
-          {pct}%
-        </span>
-      ))}
+      {ticks
+        .filter((pct) => !covered(pct))
+        .map((pct) => (
+          <span
+            key={pct}
+            className="tabular absolute right-0 -translate-y-1/2 text-[10px] text-muted-foreground"
+            style={{ top: `${(y(pct) / H) * 100}%` }}
+          >
+            {pct}%
+          </span>
+        ))}
       {started && (
         <>
           <ValueTag

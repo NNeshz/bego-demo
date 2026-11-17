@@ -61,12 +61,16 @@ export function DispatchBoard({
   const endMs = Math.max(baseline.series.at(-1)!.atMs, recommended.series.at(-1)!.atMs);
 
   const [policy, setPolicy] = useState<Policy>("empty_return");
-  const [t, setT] = useState(startMs);
+  // Opens at the END of the week: the result is visible at once (no wall of zeros). Playing
+  // rewinds to Monday and replays it day by day.
+  const [t, setT] = useState(endMs);
   const [playing, setPlaying] = useState(false);
+  const [hasPlayed, setHasPlayed] = useState(false);
+  const [showAllTrucks, setShowAllTrucks] = useState(false);
   const [speed, setSpeed] = useState<1 | 2 | 4>(1);
   const [showCorridors, setShowCorridors] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
-  const timeRef = useRef(startMs);
+  const timeRef = useRef(endMs);
 
   const runs = useMemo(() => {
     const prepare = (run: SimulationResult) => ({
@@ -105,6 +109,7 @@ export function DispatchBoard({
 
   function play(fromStart = false) {
     if (fromStart || timeRef.current >= endMs) seek(startMs);
+    setHasPlayed(true);
     setPlaying(true);
   }
 
@@ -134,6 +139,23 @@ export function DispatchBoard({
             solo donde descarga y, si no hay, regresa vacío.{" "}
             <strong className="font-medium text-foreground">Con Retorno:</strong> toma la mejor
             recomendación del motor en cada parada.
+          </p>
+          {/* The answer to the title, up front: final totals, independent of playback. */}
+          <p className="mt-1 flex w-fit items-start gap-2 rounded-2xl border bg-card/70 px-3.5 py-2 text-sm backdrop-blur">
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-strong dark:text-brand" />
+            <span>
+              En 7 días simulados: km en vacío{" "}
+              <span className="tabular font-medium">{baseline.totals.emptyKmPct.toFixed(1)}%</span>{" "}
+              →{" "}
+              <span className="tabular font-medium text-money">
+                {recommended.totals.emptyKmPct.toFixed(1)}%
+              </span>{" "}
+              ·{" "}
+              <span className="tabular font-medium text-money">
+                {signedMoney(recommended.totals.netMxn - baseline.totals.netMxn)}
+              </span>{" "}
+              de ganancia neta
+            </span>
           </p>
         </div>
         <div
@@ -185,9 +207,9 @@ export function DispatchBoard({
             Hoy {b.emptyKmPct.toFixed(1)}% · Retorno {r.emptyKmPct.toFixed(1)}%
           </span>
         </Kpi>
-        <Kpi label="Recuperado por la flota" highlight>
+        <Kpi label="Ganancia extra" highlight>
           <span className="tabular text-money">{signedMoney(recovered)}</span>
-          <span className="text-xs text-muted-foreground">ganancia neta extra vs. hoy</span>
+          <span className="text-xs text-muted-foreground">neta, de la flota vs. hoy</span>
         </Kpi>
         <Kpi label="Cargas entregadas">
           <span className="tabular">{deliveredBy(active.run.segments, t)}</span>
@@ -195,7 +217,7 @@ export function DispatchBoard({
             Hoy {deliveredBy(baseline.segments, t)} · Retorno {deliveredBy(recommended.segments, t)}
           </span>
         </Kpi>
-        <Kpi label="Km en vacío acumulados">
+        <Kpi label="Km en vacío">
           <span className="tabular">{km(current.emptyKm)}</span>
           <span className="text-xs text-muted-foreground">
             de {km(current.emptyKm + current.loadedKm)} recorridos
@@ -227,16 +249,19 @@ export function DispatchBoard({
               {showCorridors && <LegendLine label="Corredores en vacío (semana)" />}
             </div>
             <AnimatePresence>
-              {!playing && t === startMs && (
+              {!playing && !hasPlayed && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute inset-0 grid place-items-center rounded-3xl bg-background/30 backdrop-blur-[2px]"
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-3xl bg-background/25 backdrop-blur-[1.5px]"
                 >
                   <Button variant="brand" size="lg" onClick={() => play(true)}>
                     <Play className="fill-current" /> Simular semana
                   </Button>
+                  <span className="rounded-full bg-background/85 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
+                    Míralo día por día · ~24 s
+                  </span>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -294,9 +319,9 @@ export function DispatchBoard({
               className="w-full accent-[var(--brand-strong)]"
             />
             <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span>% de km en vacío a lo largo de la semana</span>
-                <span className="flex items-center gap-3">
+                <span className="flex items-center gap-3 whitespace-nowrap">
                   <span className="flex items-center gap-1.5">
                     <span className="w-4 border-t-2 border-dashed border-deadhead" /> Hoy
                   </span>
@@ -317,7 +342,7 @@ export function DispatchBoard({
           </div>
 
           <AnimatePresence>
-            {finished && (
+            {finished && hasPlayed && (
               <motion.section
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -364,8 +389,9 @@ export function DispatchBoard({
             <span className="text-xs text-muted-foreground">Toca uno para ubicarlo</span>
           </div>
           <ul className="flex-1 divide-y overflow-y-auto">
-            {rows.map(({ truck, frame, totals }) => (
-              <li key={truck.id}>
+            {rows.map(({ truck, frame, totals }, index) => (
+              // Phone: first 5 trucks, the rest behind "Ver los 25". Desktop: all, scrollable.
+              <li key={truck.id} className={cn(index >= 5 && !showAllTrucks && "hidden lg:block")}>
                 <button
                   type="button"
                   onClick={() => setSelected((s) => (s === truck.id ? null : truck.id))}
@@ -404,6 +430,16 @@ export function DispatchBoard({
               </li>
             ))}
           </ul>
+          {rows.length > 5 && (
+            <button
+              type="button"
+              onClick={() => setShowAllTrucks((v) => !v)}
+              aria-expanded={showAllTrucks}
+              className="border-t px-4 py-3 text-sm font-medium transition hover:bg-accent/60 lg:hidden"
+            >
+              {showAllTrucks ? "Ver menos" : `Ver los ${rows.length} camiones`}
+            </button>
+          )}
         </section>
       </div>
 
@@ -459,7 +495,7 @@ function Kpi({
   return (
     <div className={cn("glass flex flex-col gap-1 p-4", highlight && "ring-1 ring-brand/70")}>
       <span className="text-xs text-muted-foreground">{label}</span>
-      <div className="flex flex-col gap-0.5 text-[1.7rem] leading-tight font-medium">
+      <div className="flex flex-col gap-0.5 text-[1.4rem] leading-tight font-medium whitespace-nowrap sm:text-[1.7rem] [&>span:last-child]:whitespace-normal">
         {children}
       </div>
     </div>
