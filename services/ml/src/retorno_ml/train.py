@@ -161,6 +161,8 @@ def train(repo: Repository, sources: list[str] | None = None, save: bool = True)
             "test_log_likelihood_per_decision": _mean_log_likelihood(test_set, global_fit.coef),
         },
         "personalization": {
+            # History behind each personal model (reliability), e.g. to pick demo truckers.
+            "decisions_by_trucker": {t: len(own) for t, own in _by_trucker(train_set).items() if t in truck_weights},
             "shrinkage": shrinkage,
             "validation_mrr_by_shrinkage": validation_mrr,
             "truckers": len(truck_weights),
