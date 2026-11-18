@@ -13,7 +13,6 @@ home empty, explains why in plain trucker Spanish, and gives you a WhatsApp mess
 [Dispatcher view](https://bego-demo.vercel.app/despacho) · [Learned weights](https://bego-demo.vercel.app/modelo) ·
 [API docs](https://bego-demo.vercel.app/docs)
 
-
 ---
 
 ## Why

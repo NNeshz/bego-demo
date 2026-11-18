@@ -13,7 +13,6 @@ frente a regresar vacío, te explica por qué en lenguaje de transportista y te 
 [Vista de despachador](https://bego-demo.vercel.app/despacho) · [Pesos aprendidos](https://bego-demo.vercel.app/modelo) ·
 [Docs de la API](https://bego-demo.vercel.app/docs)
 
-
 ---
 
 ## Por qué
