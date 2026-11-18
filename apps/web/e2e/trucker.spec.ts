@@ -122,3 +122,79 @@ test.describe("trucker flow", () => {
     await expect(page.getByText("Esta ruta no existe")).toBeVisible();
   });
 });
+
+/**
+ * Voice dictation with a fake Web Speech API: real speech can't run in CI, but every
+ * browser outcome can (works, permission denied, service blocked as in Brave).
+ */
+test.describe("voice dictation", () => {
+  // Runs inside the page (serialized by Playwright): only its argument is available there.
+  const installFakeSpeech = ({ mode, brave }: { mode: string; brave: boolean }) => {
+    {
+      if (brave) Object.defineProperty(navigator, "brave", { value: { isBrave: () => true } });
+      class FakeRecognition {
+        lang = "";
+        interimResults = false;
+        continuous = false;
+        onresult: ((e: unknown) => void) | null = null;
+        onerror: ((e: { error: string }) => void) | null = null;
+        onend: (() => void) | null = null;
+        start() {
+          setTimeout(() => {
+            if (mode === "ok") {
+              const text =
+                "Descargo en Laredo mañana a las 10, traigo caja seca, mi base es Querétaro";
+              this.onresult?.({
+                resultIndex: 0,
+                results: [Object.assign([{ transcript: text }], { isFinal: true })],
+              });
+            } else {
+              this.onerror?.({ error: mode });
+            }
+            this.onend?.();
+          }, 50);
+        }
+        stop() {
+          this.onend?.();
+        }
+      }
+      Object.assign(window, {
+        SpeechRecognition: FakeRecognition,
+        webkitSpeechRecognition: FakeRecognition,
+      });
+    }
+  };
+
+  test("dictation fills the trip", async ({ page }) => {
+    await page.addInitScript(installFakeSpeech, { mode: "ok", brave: false });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Dictar con voz" }).click();
+    await expect(page.getByText("Leído sin IA")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Descargas en/ })).toContainText("Nuevo Laredo");
+  });
+
+  test("explains how to grant the microphone permission", async ({ page }) => {
+    await page.addInitScript(installFakeSpeech, { mode: "not-allowed", brave: false });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Dictar con voz" }).click();
+    await expect(page.getByText(/Sin permiso de micrófono/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Dictar con voz" })).toBeVisible(); // can retry
+  });
+
+  test("a browser whose speech service is blocked says so and hides the mic", async ({ page }) => {
+    await page.addInitScript(installFakeSpeech, { mode: "network", brave: false });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Dictar con voz" }).click();
+    await expect(page.getByText(/Tu navegador no permite dictado por voz/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Dictar con voz" })).toBeHidden();
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Dictar con voz" })).toBeHidden(); // remembered
+  });
+
+  test("Brave never offers the mic (its speech service is blocked)", async ({ page }) => {
+    await page.addInitScript(installFakeSpeech, { mode: "ok", brave: true });
+    await page.goto("/");
+    await expect(page.locator("#trip-text")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Dictar con voz" })).toBeHidden();
+  });
+});

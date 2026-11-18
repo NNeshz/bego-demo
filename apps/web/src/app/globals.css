@@ -55,6 +55,7 @@
   --animate-drift: drift 18s ease-in-out infinite alternate;
   --animate-drift-slow: drift 26s ease-in-out infinite alternate-reverse;
   --animate-halo: halo 2.4s ease-out infinite;
+  --animate-voice-bar: voice-bar 0.9s ease-in-out infinite;
 }
 
 :root {
@@ -167,6 +168,16 @@
   }
   to {
     transform: translateX(3%) scaleY(1.06);
+  }
+}
+
+@keyframes voice-bar {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
   }
 }
 

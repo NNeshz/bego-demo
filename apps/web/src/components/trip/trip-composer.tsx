@@ -260,13 +260,22 @@ export function TripComposer() {
               className="flex items-center gap-3 text-sm text-muted-foreground"
             >
               <span className="flex h-6 items-center gap-1" aria-hidden>
-                {voice.levels.map((level, i) => (
-                  <span
-                    key={i}
-                    className="w-1.5 rounded-full bg-brand-strong transition-[height] duration-75"
-                    style={{ height: `${Math.round(level * 24)}px` }}
-                  />
-                ))}
+                {voice.levels.map((level, i) =>
+                  voice.simulated ? (
+                    // No live meter (iOS): a gentle wave so it still looks like it's listening.
+                    <span
+                      key={i}
+                      className="animate-voice-bar h-6 w-1.5 origin-center rounded-full bg-brand-strong"
+                      style={{ animationDelay: `${i * 120}ms` }}
+                    />
+                  ) : (
+                    <span
+                      key={i}
+                      className="w-1.5 rounded-full bg-brand-strong transition-[height] duration-75"
+                      style={{ height: `${Math.round(level * 24)}px` }}
+                    />
+                  ),
+                )}
               </span>
               Te escucho… habla normal, como por WhatsApp.
             </motion.div>
