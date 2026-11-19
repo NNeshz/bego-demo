@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Poppins } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { ThemeProvider } from "@/components/theme";
 import { UnofficialBanner } from "@/components/unofficial-banner";
 import "./globals.css";
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <UnofficialBanner />
           {children}
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
